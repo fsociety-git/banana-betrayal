@@ -100,3 +100,23 @@ describe('SaveManager', () => {
     expect(a.getGhost('l1', 'old')?.levelHash).toBe('old');
   });
 });
+
+describe('completion and unlock rules', () => {
+  it('unlocks the pig only when the campaign is complete', () => {
+    const a = SaveManager.create(new MemoryStorage());
+    expect(a.data.progress.pigUnlocked).toBe(false);
+    a.markLevelComplete('level1', 2, 10);
+    expect(a.data.progress.pigUnlocked).toBe(false);
+    a.setCampaignComplete();
+    expect(a.data.progress.pigUnlocked).toBe(true);
+    expect(a.data.progress.campaignComplete).toBe(true);
+  });
+  it('accumulates totals across levels and remembers the last level', () => {
+    const a = SaveManager.create(new MemoryStorage());
+    a.markLevelComplete('level1', 2, 10);
+    a.markLevelComplete('level2', 3, 7);
+    expect(a.data.progress.totalDeaths).toBe(5);
+    expect(a.data.progress.totalBananas).toBe(17);
+    expect(a.data.progress.lastLevel).toBe('level2');
+  });
+});

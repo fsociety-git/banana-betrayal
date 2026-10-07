@@ -28,6 +28,13 @@ export class CameraController {
     this.cam.setZoom(getRenderScale());
   }
 
+  /** Restrict the view (e.g. to the boss arena). */
+  setBounds(x: number, y: number, w: number, h: number): void {
+    this.boundsW = Math.max(w, GAME_WIDTH);
+    this.boundsH = Math.max(h, GAME_HEIGHT);
+    this.cam.setBounds(x, y, this.boundsW, this.boundsH);
+  }
+
   snapTo(x: number, y: number, facing: 1 | -1): void {
     this.lookX = facing * this.lookAhead;
     this.targetY = y + this.verticalBias;

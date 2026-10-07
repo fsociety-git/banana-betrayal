@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { CAPTIONS, LEVEL_INTROS, PIG_LINES, type DeathCause } from '../content/script';
+import { CAPTIONS, ENDING, LEVEL_INTROS, PIG_LINES, type DeathCause } from '../content/script';
 import { AudioEngine } from '../core/audio/AudioEngine';
-import { GAME_VERSION, PLAYER_TUNING } from '../core/constants';
+import { DEPTH, GAME_VERSION, PLAYER_TUNING, TILE } from '../core/constants';
 import { devFlags } from '../core/devFlags';
 import { Events, bus } from '../core/events';
 import { InputManager } from '../core/input/InputManager';
@@ -10,7 +10,9 @@ import { SaveManager } from '../core/save/SaveManager';
 import { makeRecord } from '../core/save/schema';
 import { SettingsService } from '../core/settings/SettingsService';
 import { DevOverlay } from '../dev/DevOverlay';
+import { PigBoss } from '../gameplay/boss/PigBoss';
 import { CameraController } from '../gameplay/camera/CameraController';
+import { GhostPlayer, GhostRecorder } from '../gameplay/ghost/Ghost';
 import { DialogueManager } from '../gameplay/dialogue/DialogueManager';
 import { SpeechBubble } from '../gameplay/dialogue/SpeechBubble';
 import { Banana } from '../gameplay/objects/Banana';
@@ -25,6 +27,7 @@ import { Terrain } from '../gameplay/world/Terrain';
 import { Water } from '../gameplay/world/Water';
 import { THEMES, type ThemePalette } from '../gameplay/world/themes';
 import { CAMPAIGN, getLevel } from '../levels';
+import { levelHash } from '../levels/hash';
 import { parseLevel } from '../levels/parse';
 import type { LevelData, ParsedLevel } from '../levels/types';
 import { validateLevel } from '../levels/validate';
@@ -32,7 +35,9 @@ import { CaptionLayer } from '../ui/CaptionLayer';
 import { Hud } from '../ui/Hud';
 import { LevelIntro } from '../ui/LevelIntro';
 import { PauseMenu } from '../ui/PauseMenu';
+import { downloadResultsCard } from '../results/ResultsCard';
 import { ResultsOverlay } from '../ui/ResultsOverlay';
+import { showCredits, SimpleDialog } from '../ui/Overlays';
 import { SettingsMenu } from '../ui/SettingsMenu';
 import { TouchControls } from '../ui/TouchControls';
 import { UIRoot } from '../ui/UIRoot';
@@ -74,6 +79,13 @@ export class GameScene extends Phaser.Scene {
   private flag: GoalFlag | null = null;
   private flagFleeing = false;
   private flagCanFinish = true;
+  private boss: PigBoss | null = null;
+  private bossStarted = false;
+  private endingStarted = false;
+  private endingObjects: Phaser.GameObjects.GameObject[] = [];
+  private ghostRecorder = new GhostRecorder(50);
+  private ghostPlayer: GhostPlayer | null = null;
+  private dialog = new SimpleDialog();
   private decor: Phaser.GameObjects.GameObject[] = [];
   private snapshots = new SnapshotRegistry();
   private dialogue!: DialogueManager;
@@ -116,6 +128,7 @@ export class GameScene extends Phaser.Scene {
     this.deaths = 0; this.elapsedMs = 0; this.finished = false; this.running = true; this.bananasSpent = 0;
     this.bananas = []; this.checkpoints = []; this.decor = [];
     this.flag = null; this.flagFleeing = false; this.flagCanFinish = true; this.deathContext = null;
+    this.boss = null; this.bossStarted = false; this.endingStarted = false; this.endingObjects = []; this.ghostRecorder.reset(); this.ghostPlayer = null;
     this.snapshots = new SnapshotRegistry();
 
     // world
@@ -134,7 +147,8 @@ export class GameScene extends Phaser.Scene {
 
     // grid entities
     this.level.bananas.forEach((b, i) => this.bananas.push(new Banana(this, b.x, b.y, `b${i}`)));
-    for (const c of this.level.checkpoints) this.checkpoints.push(new CheckpointPost(this, c.x, c.y, c.id, c.index, this.palette));
+    const checkpointDefs = this.settings.settings.assist.enabled && this.settings.settings.assist.extraCheckpoints ? this.withAssistCheckpoints(this.level) : this.level.checkpoints;
+    for (const c of checkpointDefs) this.checkpoints.push(new CheckpointPost(this, c.x, c.y, c.id, c.index, this.palette));
     if (this.level.flag) this.flag = new GoalFlag(this, this.level.flag.x, this.level.flag.y);
     // data-driven objects
     const ctx: WorldContext & { solids: Phaser.Physics.Arcade.StaticGroup } = {
@@ -163,6 +177,12 @@ export class GameScene extends Phaser.Scene {
     for (const [i, b] of this.bananas.entries()) if (!this.world.fleeing.some((f) => f.banana === b)) this.snapshots.register(`banana-${i}`, b);
     this.wirePhysics();
     this.world.wire();
+    if (data.boss) this.setupBoss(data);
+    // ghost of the best run (replay mode only; visual, never collides)
+    if (this.sceneData.mode === 'replay') {
+      const rec = SaveManager.instance.getGhost(data.id, levelHash(data));
+      if (rec && rec.frames.length >= 8) this.ghostPlayer = new GhostPlayer(this, rec);
+    }
 
     // UI
     this.hud = new Hud(() => this.pause(), this.sceneData.mode === 'replay' || this.settings.settings.showTimer);
@@ -310,6 +330,7 @@ export class GameScene extends Phaser.Scene {
   private kill(cause: DeathCause): void {
     if (!this.player.alive || this.finished) return;
     // Environmental deaths (falling, drowning) are attributed to the trap that caused them; direct hazards keep their own cause.
+    if (cause === 'crush' && this.bossStarted && this.boss && !this.boss.defeated) cause = 'boss';
     const environmental = cause === 'fall' || cause === 'water';
     const ctx = environmental && this.deathContext && this.time.now < this.deathContext.until ? this.deathContext.cause : null;
     const finalCause = ctx ?? cause;
@@ -338,11 +359,21 @@ export class GameScene extends Phaser.Scene {
       // no checkpoint yet: everything back to the level's initial state
       for (const b of this.bananas) b.restore({ collected: false });
       this.world.resetAll();
+      this.boss?.restore();
       this.bananasSpent = 0;
     } else {
       this.bananasSpent = this.spentAtBaseline;
     }
     this.world.afterRestore();
+    if (this.boss && this.bossStarted) {
+      // the encounter restarts from the pre-arena checkpoint: reopen the door, widen the camera, calm the music
+      this.bossStarted = false;
+      this.cameraCtl.setBounds(0, 0, this.level.widthPx, this.level.heightPx);
+      this.world.gates.get('arena-door')?.setOpen(true, false);
+      this.hud.setBoss(null);
+      this.audio.playMusic(this.levelData.music ?? 'hq');
+      this.dialogue.hide();
+    }
     this.hud.setBananas(this.collectedCount(), this.bananas.length);
     this.deathContext = null;
     this.dialogue.hide();
@@ -355,6 +386,102 @@ export class GameScene extends Phaser.Scene {
     if (!this.player.alive || this.finished) return;
     this.captions.clear();
     this.respawn();
+  }
+
+  // ------------------------------------------------------------------ boss + ending
+  private setupBoss(data: LevelData): void {
+    const arenaDef = data.objects.find((o) => o.type === 'boss-arena');
+    if (!arenaDef || arenaDef.type !== 'boss-arena') return;
+    const arena = { left: arenaDef.x * TILE, right: (arenaDef.x + arenaDef.w) * TILE, top: arenaDef.y * TILE, floorY: (arenaDef.y + arenaDef.h) * TILE };
+    const boss = (this.boss = new PigBoss(this, arena, this.settings.reducedMotion));
+    this.snapshots.register('boss', boss);
+    const entry = this.add.zone(arena.left + 70, arena.floorY - 100, 60, 200);
+    this.physics.add.existing(entry, true);
+    this.decor.push(entry);
+    this.physics.add.overlap(this.player.proxy, entry, () => this.startBoss(arena));
+    this.physics.add.collider(this.player.proxy, boss.root, () => { if (boss.deadly) this.kill('boss'); });
+    this.physics.add.overlap(this.player.proxy, boss.stompZone, () => {
+      if (!boss.stunned || this.player.body.velocity.y < 60) return;
+      if (boss.stomp()) {
+        this.player.body.setVelocityY(-560);
+        this.audio.play('bossHit', 1, 200);
+        this.cameraCtl.shake(0.008, 260);
+        this.sparkles?.emitParticleAt(boss.root.x, boss.root.y - 110, 18);
+        this.hud.setBoss(boss.hp);
+      }
+    });
+    boss.events.on('telegraph', (kind: string) => this.audio.play(kind === 'charge' ? 'bossCharge' : 'warning', 1, 300));
+    boss.events.on('charge', () => this.audio.play('whoosh', 1, 200));
+    boss.events.on('wallHit', () => { this.audio.play('slam', 1, 100); this.cameraCtl.shake(0.01, 300); this.debris?.emitParticleAt(boss.root.x, boss.root.y - 60, 12); });
+    boss.events.on('crateLand', (x: number, y: number) => { this.audio.play('impact', 0.9, 80); this.debris?.emitParticleAt(x, y, 6); this.cameraCtl.shake(0.003, 120); });
+    boss.events.on('hit', (hp: number) => { this.audio.play('bossHurt', 1, 0); if (hp === 2) this.time.delayedCall(500, () => this.bossSay('l5-phase2')); if (hp === 1) this.time.delayedCall(500, () => this.bossSay('l5-phase3')); });
+    boss.events.on('defeated', () => this.onBossDefeated(arena));
+  }
+
+  private bossSay(key: string): void {
+    if (!this.boss) return;
+    this.dialogue.setSpeaker(this.boss);
+    this.dialogue.say(key, { once: true, priority: true });
+  }
+
+  private startBoss(arena: { left: number; right: number; floorY: number; top: number }): void {
+    if (!this.boss || this.bossStarted || !this.player.alive) return;
+    this.bossStarted = true;
+    this.cameraCtl.setBounds(arena.left, 0, arena.right - arena.left, this.level.heightPx);
+    this.world.gates.get('arena-door')?.setOpen(false);
+    this.audio.playMusic('boss');
+    this.audio.setMusicIntensity(1);
+    this.hud.setBoss(this.boss.hp);
+    this.boss.start();
+    this.time.delayedCall(400, () => this.bossSay('l5-boss-start'));
+  }
+
+  private onBossDefeated(arena: { left: number; right: number; floorY: number; top: number }): void {
+    if (!this.boss || this.endingStarted) return;
+    this.endingStarted = true;
+    this.running = false; // the clock stops when the pig does
+    this.hud.setBoss(0);
+    this.audio.play('fanfare', 1, 0);
+    this.audio.setMusicIntensity(0.4);
+    this.cameraCtl.shake(0.006, 400);
+    this.time.delayedCall(700, () => this.bossSay('l5-defeat'));
+    // the "golden" banana trophy lands on the floor in front of the forklift
+    const tx = Phaser.Math.Clamp(this.boss.root.x - 150, arena.left + 60, arena.right - 60);
+    const trophy = this.add.image(tx, arena.floorY - 24, 'banana').setScale(2).setTint(0xffd84a).setDepth(DEPTH.objects + 2);
+    const glow = this.add.image(tx, arena.floorY - 24, 'glow').setScale(1.4).setTint(0xf7c948).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.objects + 1);
+    const tzone = this.add.zone(tx, arena.floorY - 30, 60, 60);
+    this.physics.add.existing(tzone, true);
+    // the real banana, next to his lunch, by the far wall
+    const lx = arena.right - 90;
+    const lunch = this.add.graphics().setDepth(DEPTH.objects);
+    lunch.fillStyle(0x2c1a0e, 1); lunch.fillRoundedRect(lx - 50, arena.floorY - 44, 100, 10, 4); lunch.fillRect(lx - 40, arena.floorY - 34, 8, 34); lunch.fillRect(lx + 32, arena.floorY - 34, 8, 34);
+    lunch.fillStyle(0xe5484d, 1); lunch.fillRoundedRect(lx - 36, arena.floorY - 74, 44, 30, 5); lunch.fillStyle(0x2c1a0e, 1); lunch.fillRect(lx - 30, arena.floorY - 78, 32, 6);
+    const real = this.add.image(lx + 24, arena.floorY - 60, 'banana').setScale(1.2).setDepth(DEPTH.objects + 2);
+    const realGlow = this.add.image(lx + 24, arena.floorY - 60, 'glow').setScale(0.8).setTint(0xfff1a8).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.objects + 1);
+    const rzone = this.add.zone(lx + 24, arena.floorY - 50, 50, 70);
+    this.physics.add.existing(rzone, true);
+    this.endingObjects.push(trophy, glow, tzone, lunch, real, realGlow, rzone);
+    let gotTrophy = false, finished = false;
+    const finish = (): void => { if (finished) return; finished = true; this.completeLevel(); };
+    this.physics.add.overlap(this.player.proxy, tzone, () => {
+      if (gotTrophy) return;
+      gotTrophy = true;
+      this.audio.play('collect', 1, 0);
+      this.sparkles?.emitParticleAt(tx, arena.floorY - 30, 20);
+      trophy.destroy(); glow.destroy();
+      this.time.delayedCall(500, () => { this.captions.show(ENDING.trophyReveal, 2400); this.audio.play('pop', 1, 0); this.bossSay('l5-plastic'); });
+      this.time.delayedCall(3100, () => { this.captions.show(ENDING.realBanana, 2600); realGlow.setAlpha(0.9); });
+      this.time.delayedCall(9000, finish);
+    });
+    this.physics.add.overlap(this.player.proxy, rzone, () => {
+      if (!gotTrophy || finished) return;
+      this.audio.play('sparkle', 1, 0);
+      this.sparkles?.emitParticleAt(lx + 24, arena.floorY - 60, 30);
+      real.destroy(); realGlow.destroy();
+      this.bossSay('l5-real');
+      this.captions.show(ENDING.closing, 2600);
+      this.time.delayedCall(1600, finish);
+    });
   }
 
   private completeLevel(): void {
@@ -378,8 +505,11 @@ export class GameScene extends Phaser.Scene {
     save.markLevelComplete(this.levelData.id, this.deaths, bananas);
     const idx = CAMPAIGN.indexOf(this.levelData.id);
     const nextLevelId = idx >= 0 && idx + 1 < CAMPAIGN.length ? CAMPAIGN[idx + 1] : null;
+    const wasUnlocked = save.data.progress.pigUnlocked;
     if (idx >= 0 && idx === CAMPAIGN.length - 1 && CAMPAIGN.every((id) => save.data.progress.completed[id])) save.setCampaignComplete();
-    const endLine = PIG_LINES[`${this.levelData.id.replace('level', 'l')}-end`];
+    const justUnlocked = !wasUnlocked && save.data.progress.pigUnlocked;
+    if (isNewBest) save.setGhost(this.levelData.id, this.ghostRecorder.toRecording(this.levelData.id, levelHash(this.levelData), character, record.timeMs));
+    const endLine = PIG_LINES[`${this.levelData.id.replace('level', 'l')}-end`] ?? PIG_LINES['l5-defeat'];
     bus.emit(Events.LevelCompleted, this.levelData.id);
     this.time.delayedCall(900, () => {
       if (!this.scene.isActive()) return;
@@ -388,11 +518,14 @@ export class GameScene extends Phaser.Scene {
         levelName: this.levelData.name, levelIndex: idx >= 0 ? idx + 1 : null, timeMs: record.timeMs, deaths: this.deaths,
         bananas, bananaTotal: this.bananas.length, best: isNewBest ? previous : save.getRecord(this.levelData.id, character, assist), isNewBest,
         nextLevelId, pigLine: typeof endLine === 'string' ? endLine : 'See? Nothing happened. Mostly.', character,
+        campaignComplete: this.levelData.boss === true && save.data.progress.campaignComplete,
+        unlockLine: justUnlocked ? ENDING.unlock : null,
       }, {
         next: () => { this.results.hide(); if (nextLevelId) this.scene.restart({ ...this.sceneData, levelId: nextLevelId }); },
         replay: () => { this.results.hide(); this.scene.restart(this.sceneData); },
         title: () => { this.results.hide(); this.quitToTitle(); },
-        download: () => UIRoot.toast('Results card export arrives in milestone D.'),
+        download: () => downloadResultsCard(this, { levelName: this.levelData.name, levelIndex: idx >= 0 ? idx + 1 : null, timeMs: record.timeMs, deaths: this.deaths, bananas, bananaTotal: this.bananas.length, character, isNewBest, campaignComplete: save.data.progress.campaignComplete && this.levelData.boss === true, assist, gameVersion: GAME_VERSION }),
+        credits: () => { this.results.hide(); showCredits(this.dialog, () => this.quitToTitle()); },
       });
     });
   }
@@ -428,6 +561,13 @@ export class GameScene extends Phaser.Scene {
     for (const b of this.bananas) if (!this.world.fleeing.some((f) => f.banana === b)) b.tick(this.time.now);
     this.flag?.tick(dt);
     this.player.update(dt);
+    if (this.boss) {
+      this.boss.update(this.bossStarted ? dt : 0, this.player.x);
+      const pb = this.player.body;
+      if (this.player.alive && this.boss.crateHits(pb.left, pb.right, pb.top, pb.bottom)) this.kill('boss');
+    }
+    if (this.player.alive && this.running) this.ghostRecorder.update(delta, this.player.x, this.player.feetY, this.player.facing, this.player.state);
+    this.ghostPlayer?.update(delta);
     if (this.player.alive && this.running) {
       this.elapsedMs += delta;
       if (this.player.feetY > this.level.heightPx + 160) this.kill('fall');
@@ -451,6 +591,32 @@ export class GameScene extends Phaser.Scene {
       if (b.top >= y - 1 && (best === null || b.top < best)) best = b.top;
     }
     return best;
+  }
+
+  /** Assist mode: add a checkpoint on safe ground roughly halfway between each pair of designer checkpoints. */
+  private withAssistCheckpoints(level: ParsedLevel): ParsedLevel['checkpoints'] {
+    const anchors = [level.spawn, ...level.checkpoints.map((c) => ({ x: c.x, y: c.y }))];
+    const extra: { x: number; y: number }[] = [];
+    for (let i = 0; i + 1 < anchors.length; i++) {
+      const a = anchors[i], b = anchors[i + 1];
+      if (b.x - a.x < TILE * 24) continue;
+      const midCol = Math.round((a.x + b.x) / 2 / TILE);
+      // search outward for a solid tile with three empty tiles above it (standing room)
+      for (let d = 0; d < 12; d++) {
+        for (const col of [midCol + d, midCol - d]) {
+          if (col < 1 || col >= level.cols - 1) continue;
+          for (let row = 1; row < level.rows; row++) {
+            if (level.grid[row][col] === 'solid' && level.grid[row - 1][col] === 'empty' && (row < 2 || level.grid[row - 2][col] === 'empty') && (row < 3 || level.grid[row - 3][col] === 'empty')) {
+              extra.push({ x: col * TILE + TILE / 2, y: row * TILE });
+              d = 99; break;
+            }
+          }
+          if (d === 99) break;
+        }
+      }
+    }
+    const all = [...level.checkpoints.map((c) => ({ x: c.x, y: c.y })), ...extra].sort((p, q) => p.x - q.x);
+    return all.map((p, index) => ({ ...p, id: `cp${index + 1}`, index }));
   }
 
   private devSkipCheckpoint(): void {
@@ -478,6 +644,10 @@ export class GameScene extends Phaser.Scene {
     this.player.events.removeAllListeners();
     this.player.destroy();
     this.world.destroy();
+    this.boss?.destroy();
+    this.ghostPlayer?.destroy();
+    for (const o of this.endingObjects) o.destroy();
+    this.dialog.hide();
     for (const b of this.bananas) b.destroy();
     for (const c of this.checkpoints) c.destroy();
     this.flag?.destroy();

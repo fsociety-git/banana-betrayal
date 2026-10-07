@@ -15,6 +15,8 @@ export interface ResultsInfo {
   nextLevelId: string | null;
   pigLine: string;
   character: 'monkey' | 'pig';
+  campaignComplete?: boolean;
+  unlockLine?: string | null;
 }
 
 export interface ResultsActions {
@@ -22,6 +24,7 @@ export interface ResultsActions {
   replay: () => void;
   title: () => void;
   download: () => void;
+  credits?: () => void;
 }
 
 /** End-of-level results card (modal). */
@@ -52,11 +55,14 @@ export class ResultsOverlay {
     );
     const best = el('p', 'bb-muted', info.isNewBest ? '★ New personal best!' : info.best ? `Personal best: ${formatTime(info.best.timeMs)} with ${info.best.deaths} deaths` : '');
     const row = el('div', 'bb-stack');
-    if (info.nextLevelId) row.append(button('Next level', actions.next));
+    if (info.campaignComplete && actions.credits) row.append(button('Roll credits', actions.credits));
+    else if (info.nextLevelId) row.append(button('Next level', actions.next));
     row.append(button('Replay level', actions.replay, info.nextLevelId ? 'secondary' : ''));
     row.append(button('Download results card', actions.download, 'secondary'));
     row.append(button('Return to title', actions.title, 'secondary'));
-    panel.append(kicker, title, quote, stats, best, row);
+    panel.append(kicker, title, quote, stats, best);
+    if (info.unlockLine) panel.append(el('p', 'bb-unlock-badge', `🐷 ${info.unlockLine}`));
+    panel.append(row);
     screen.append(panel);
     this.screen = UIRoot.mount(screen);
     this.untrap = trapFocus(panel);

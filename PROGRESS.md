@@ -26,3 +26,11 @@
 - LevelWorld factory owns all data-driven objects: moving platforms, sinking platforms, bubbles, croc platforms, conveyors, crushers, switches/gates, wind zones, crumble + doubting clouds, falling objects (coconut/anvil/crates with ground shadows), banana machine (+ honest processing fee and dispensed peel), hazard rects (spikes/saw/electric/peel), blow-away signs, pigs with poses.
 - Levels 1–5 authored with the builder; all validate. Level 5 ends in a boss arena (boss in Milestone D).
 - Death attribution: environmental deaths credit the trap that caused them (bridge/cloud/sinking/wind); direct hazards keep their own captions.
+
+## Milestone D — boss, ending, unlock, saves, replay
+- Three-phase pig forklift boss (telegraphed charges that jam into the wall → stomp the hood; lobbed banana crates with landing shadows; frenzy phase). Deaths restart the encounter from the pre-arena checkpoint; the arena door closes during the fight and the camera locks to the arena.
+- Ending: plastic trophy reveal, the real banana beside the pig's lunch, closing caption, results, credits, pig unlock.
+- Ghost recorder (50ms samples) saved with the personal best and keyed by a level-layout hash; replay mode shows the ghost and the timer.
+- Downloadable 1200x630 results card rendered locally on a canvas.
+- Assist mode: slower hazard cycles and extra mid-way checkpoints; assist records kept separately.
+- Deterministic browser test hook `__bbTest.sim(ms)` steps the game manually (immune to hidden-tab throttling).

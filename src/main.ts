@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import './styles/ui.css';
 import { GAME_HEIGHT, GAME_WIDTH } from './core/constants';
 import { InputManager } from './core/input/InputManager';
-import { initRenderScale } from './core/render/RenderScale';
+import { applyRenderScale, initRenderScale } from './core/render/RenderScale';
+import { Events, bus } from './core/events';
 import { SaveManager } from './core/save/SaveManager';
 import { SettingsService } from './core/settings/SettingsService';
 import { devFlags } from './core/devFlags';
@@ -47,6 +48,7 @@ function boot(): void {
     scene: [BootScene, PreloadScene, TitleScene, GameScene],
   });
   SettingsService.instance.apply();
+  bus.on(Events.SettingsChanged, () => applyRenderScale(game, save.settings.quality));
   if (!save.persistent) UIRoot.toast('Storage is unavailable in this browser: progress will not be saved.', 5000);
   else if (save.loadWarning) UIRoot.toast(save.loadWarning, 4000);
   const input = InputManager.instance;

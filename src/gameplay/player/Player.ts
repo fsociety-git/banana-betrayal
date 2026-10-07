@@ -39,6 +39,7 @@ export class Player {
   /** Platform we are standing on. Kept until we jump, walk off its edge or get separated from it. */
   private stickyRide: RideSource | null = null;
   private lastGroundedAt = -Infinity;
+  private jumpPressedAt = -Infinity;
   private jumpedSinceGround = false;
   private jumpCutDone = false;
   private wasGrounded = false;
@@ -65,7 +66,11 @@ export class Player {
     this.body.useDamping = false;
     this.rig = new CharacterRig(scene, x, y, this.def);
     this.spawnPoint = { x, y };
+    InputManager.instance.on('jumpPressed', this.onJumpPressed);
   }
+
+  /** Jump presses are stamped with scene time so buffering works under any clock (including simulated steps). */
+  private onJumpPressed = (): void => { this.jumpPressedAt = this.scene.time.now; };
 
   /** Feet position (bottom centre of the collision body). */
   get x(): number { return this.body.center.x; }
@@ -94,7 +99,7 @@ export class Player {
       this.syncRig(dt);
       return;
     }
-    const now = performance.now();
+    const now = this.scene.time.now;
     // Riding: a fresh contact refreshes the sticky window; otherwise keep the last platform while we are
     // still just above it and have not jumped, so vertical motion of the platform never breaks contact.
     if (this.ride) {
@@ -143,7 +148,9 @@ export class Player {
 
     // Jumping: coyote time + buffered input
     const canCoyote = now - this.lastGroundedAt <= T.coyoteMs && !this.jumpedSinceGround;
-    if (this.controlsEnabled && input.hasBufferedJump(T.jumpBufferMs) && (grounded || canCoyote)) {
+    const buffered = now - this.jumpPressedAt <= T.jumpBufferMs;
+    if (this.controlsEnabled && buffered && (grounded || canCoyote)) {
+      this.jumpPressedAt = -Infinity;
       input.consumeJump();
       this.body.setVelocityY(T.jumpVelocity);
       this.jumpedSinceGround = true;
@@ -226,6 +233,7 @@ export class Player {
     this.wasGrounded = false;
     this.jumpedSinceGround = false;
     this.lastGroundedAt = -Infinity;
+    this.jumpPressedAt = -Infinity;
     InputManager.instance.consumeJump();
     this.rig.impulse(0.7, 1.3, 160);
     this.events.emit('respawned');
@@ -234,6 +242,7 @@ export class Player {
   setReducedMotion(on: boolean): void { this.rig.reducedMotion = on; }
 
   destroy(): void {
+    InputManager.instance.off('jumpPressed', this.onJumpPressed);
     this.events.removeAllListeners();
     this.scene.tweens.killTweensOf(this.rig);
     this.rig.destroy();

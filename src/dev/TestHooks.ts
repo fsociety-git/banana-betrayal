@@ -28,6 +28,20 @@ export function installTestHooks(game: Phaser.Game): void {
       while (performance.now() - t0 < ms) { await this.wait(8); apex = Math.min(apex, Number(this.pos().y)); }
       return apex;
     },
+    /**
+     * Deterministic simulation: stop the RAF loop and step the game manually with a fixed 60Hz delta.
+     * Immune to tab visibility and timer throttling; call wake() (or navigate) when done.
+     */
+    simTime: null as number | null,
+    sim(ms: number, stepMs = 1000 / 60): void {
+      const loop = game.loop;
+      if (loop.running) loop.sleep();
+      let t = this.simTime ?? Math.max(loop.time || 0, performance.now());
+      const steps = Math.max(1, Math.round(ms / stepMs));
+      for (let i = 0; i < steps; i++) { t += stepMs; game.step(t, stepMs); }
+      this.simTime = t;
+    },
+    wake(): void { if (!game.loop.running) game.loop.wake(); this.simTime = null; },
     input: InputManager.instance,
     game,
   };

@@ -27,6 +27,10 @@ Stack: Phaser 4.2.1, TypeScript 7 (strict), Vite 8, Vitest 5. Static deploy (Git
 - `public/assets/characters/` game-ready cutouts (generated from `concept/`); `art/cutouts/` full-res cutouts
 - `tests/` vitest unit tests; `PROGRESS.md` milestone log; `PLAN.md` implementation plan
 
+## Browser testing
+- Dev builds expose `window.__bbTest` (src/dev/TestHooks.ts): `down/up(code)` synthetic keys, `place(x,y)`, `pos()`, and `sim(ms)` which sleeps the RAF loop and steps the game deterministically (immune to hidden tabs / timer throttling). Use `?level=<id>&nopause=1` to boot straight into a level without pause-on-blur.
+- A hidden/occluded tab stops requestAnimationFrame: screenshots still work but nothing moves. Prefer `sim()` over real waits.
+
 ## Phaser 4 notes (differs from v3)
 - `roundPixels` defaults to false. `setTintFill` removed → `setTint(c).setTintMode(Phaser.TintModes.FILL)`.
 - DynamicTexture draw commands need `render()`. postFX/preFX → `gameObject.filters.internal.add*()`, `camera.filters.internal/external`.

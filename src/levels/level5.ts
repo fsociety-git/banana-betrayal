@@ -34,7 +34,7 @@ b.block(144, G - 3, 2, 1);
 b.pit(147, 149, G, '^');
 b.checkpoint(155, G - 1);
 // --- Section 4: boss arena (cols 160-189), walled
-b.fill(159, 159, 0, G - 1, '#');
+b.fill(159, 159, 0, G - 4, '#');      // arena wall with a doorway at the bottom
 b.fill(189, 189, 0, G - 1, '#');
 b.fill(160, 188, 0, 0, '#');
 
@@ -74,6 +74,7 @@ export const level5: LevelData = {
     { type: 'gate', x: 151, y: G - 4, w: 1, h: 4, id: 'vault2' },
     { type: 'gate', x: 153, y: G - 4, w: 1, h: 4, id: 'vault3', open: true },
     { type: 'falling-object', x: 145, y: G - 7, id: 'crate1', kind: 'banana-crate', triggerWidth: 3 },
+    { type: 'gate', x: 159, y: G - 3, w: 1, h: 3, id: 'arena-door', open: true },
     { type: 'boss-arena', x: 160, y: 1, w: 29, h: 10, id: 'arena' },
     { type: 'decor', x: 2, y: G - 1, kind: 'goldstack' }, { type: 'decor', x: 19, y: G - 1, kind: 'poster' }, { type: 'decor', x: 72, y: G - 1, kind: 'goldstack' },
     { type: 'decor', x: 118, y: G - 1, kind: 'poster' }, { type: 'decor', x: 157, y: G - 1, kind: 'goldstack' }, { type: 'decor', x: 165, y: G - 1, kind: 'goldstack' }, { type: 'decor', x: 183, y: G - 1, kind: 'poster' },
