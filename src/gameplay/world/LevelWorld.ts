@@ -46,6 +46,8 @@ export interface WorldContext {
   toast(text: string, ms?: number): void;
   groundBelow(x: number, y: number): number | null;
   onFlagFlee(fleeTo: { x: number; y: number }): void;
+  /** The player notices a nearby trap arming (head perks up). */
+  playerAlert(x: number): void;
 }
 
 interface BlowSign { gfx: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone; blown: boolean; x: number; y: number; }
@@ -116,13 +118,14 @@ export class LevelWorld {
         const fb = new FleeingBanana(scene, o.id, foot.x, py + TILE / 2, o.path);
         fb.onJoke = () => this.ctx.say('l1-banana-flee', true, 'pig');
         fb.onHop = () => this.ctx.sfx('whoosh', 0.8, 200);
+        fb.onGiveUp = () => this.ctx.say('l1-banana-gaveup', true, 'pig');
         this.fleeing.push(fb); this.ctx.snapshots.register(`fleeing-${o.id}`, fb);
         break;
       }
       case 'collapsing-bridge': {
         const bridge = new CollapsingBridge(scene, o.id, o.x, o.y, o.w, o.delayMs ?? 350, o.stepMs ?? 230, p);
         bridge.machine.timeScale = ts;
-        bridge.onWarn = () => this.ctx.sfx('warning', 0.7, 300);
+        bridge.onWarn = () => { this.ctx.sfx('warning', 0.7, 300); this.ctx.playerAlert((o.x + o.w / 2) * TILE); };
         bridge.onPlankFall = (x, y) => { this.ctx.sfx('collapse', 0.6, 90); this.ctx.debris(x, y, 4); this.ctx.shake(0.002, 90); };
         this.bridges.push(bridge); this.ctx.snapshots.register(`bridge-${o.id}`, bridge);
         break;
@@ -134,8 +137,8 @@ export class LevelWorld {
         const id = o.id ?? `fall-${o.x}-${o.y}`;
         const f = new Coconut(scene, id, o.x, o.y, o.triggerWidth ?? 3, groundY, kind);
         f.machine.timeScale = ts;
-        f.onWarn = () => this.ctx.sfx('warning', 0.8, 300);
-        f.onLand = (x, y) => { this.ctx.sfx(kind === 'anvil' ? 'slam' : 'impact', 0.9, 120); this.ctx.debris(x, y, 8); this.ctx.shake(0.004, 160); };
+        f.onWarn = () => { this.ctx.sfx('warning', 0.8, 300); this.ctx.playerAlert(foot.x); };
+        f.onLand = (x, y) => { this.ctx.sfx(kind === 'anvil' ? 'slam' : 'impact', 0.9, 120); this.ctx.debris(x, y, 8); this.ctx.shake(0.004, 160); if (kind === 'coconut') this.ctx.say('l1-coconut-fell', true, 'pig'); };
         this.fallers.push(f); this.ctx.snapshots.register(`faller-${id}`, f);
         break;
       }
@@ -148,7 +151,7 @@ export class LevelWorld {
       case 'sinking-platform': {
         const sp = new SinkingPlatform(scene, o.id ?? `sink-${o.x}-${o.y}`, px + (o.w * TILE) / 2, py + 10, o.w, o.sinkDepth ?? 90, o.warnMs ?? 650, p);
         sp.machine.timeScale = ts;
-        sp.onWarn = () => this.ctx.sfx('warning', 0.5, 250);
+        sp.onWarn = () => { this.ctx.sfx('warning', 0.5, 250); this.ctx.playerAlert(sp.x); };
         sp.onSink = () => this.ctx.sfx('splash', 0.5, 200);
         this.sinking.push(sp); this.ctx.snapshots.register(`sink-${sp.id}`, sp);
         break;
@@ -195,7 +198,7 @@ export class LevelWorld {
         const id = o.id ?? `crumble-${o.x}-${o.y}`;
         const c = new CrumbleCloud(scene, id, px + (o.w * TILE) / 2, py + 10, o.w, doubting ? 1500 : (o.type === 'crumble' ? (o.crumbleMs ?? 450) : 450), doubting ? 2600 : (o.type === 'crumble' ? (o.respawnMs ?? 2200) : 2200), doubting, p);
         c.machine.timeScale = ts;
-        c.onWarn = () => this.ctx.sfx('crumble', 0.35, 250);
+        c.onWarn = () => { this.ctx.sfx('crumble', 0.35, 250); this.ctx.playerAlert(px); };
         c.onCrumble = (x, y) => { this.ctx.sfx('crumble', 0.8, 100); this.ctx.sparkle(x, y, 10); };
         if (doubting) c.onJoke = () => this.ctx.say('l4-cloud', true, 'pig');
         this.crumbles.push(c); this.ctx.snapshots.register(`crumble-${id}`, c);
@@ -257,15 +260,26 @@ export class LevelWorld {
   private addSign(x: number, y: number, text: string): Phaser.GameObjects.GameObject[] {
     const { scene, palette: p } = this.ctx;
     const t = scene.add.text(0, 0, text, { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '13px', color: '#2c1a0e', align: 'center', wordWrap: { width: 132 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(6);
-    const bw = Math.max(110, t.width + 24), bh = t.height + 20;
-    const boardBottom = y - 44, boardTop = boardBottom - bh;
-    t.setPosition(x, boardTop + bh / 2);
+    const bw = Math.max(110, t.width + 26), bh = t.height + 22;
+    const boardBottom = y - 46, boardTop = boardBottom - bh;
+    const tilt = ((x * 7919) % 5 - 2) * 0.012; // deterministic slight lean per sign
+    t.setPosition(x, boardTop + bh / 2).setRotation(tilt);
     const g = scene.add.graphics().setDepth(5);
-    g.fillStyle(p.outline, 1); g.fillRect(x - 4, y - 44, 8, 44);
-    g.fillRoundedRect(x - bw / 2 - 4, boardTop - 4, bw + 8, bh + 8, 8);
-    g.fillStyle(p.plank, 1); g.fillRoundedRect(x - bw / 2, boardTop, bw, bh, 6);
-    g.fillStyle(p.plankDark, 0.7); g.fillRect(x - bw / 2, boardBottom - 4, bw, 4);
-    g.fillStyle(0xffffff, 0.25); g.fillRect(x - bw / 2 + 4, boardTop + 3, bw - 8, 2);
+    // two posts with a cross brace
+    g.fillStyle(p.outline, 1); g.fillRoundedRect(x - bw / 2 + 10, y - 46, 9, 46, 3); g.fillRoundedRect(x + bw / 2 - 19, y - 46, 9, 46, 3);
+    g.fillStyle(p.plankDark, 1); g.fillRect(x - bw / 2 + 12, y - 44, 5, 42); g.fillRect(x + bw / 2 - 17, y - 44, 5, 42);
+    g.fillStyle(p.outline, 1); g.fillRect(x - bw / 2 + 14, y - 22, bw - 28, 4);
+    // board: outline, wood, grain, highlight, nails
+    g.save(); g.translateCanvas(x, boardTop + bh / 2); g.rotateCanvas(tilt);
+    g.fillStyle(p.outline, 1); g.fillRoundedRect(-bw / 2 - 4, -bh / 2 - 4, bw + 8, bh + 8, 9);
+    g.fillStyle(p.plank, 1); g.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 6);
+    g.fillStyle(p.plankDark, 0.35); for (let gy = -bh / 2 + 10; gy < bh / 2 - 6; gy += 9) g.fillRect(-bw / 2 + 8, gy, bw - 16, 1);
+    g.fillStyle(p.plankDark, 0.8); g.fillRect(-bw / 2, bh / 2 - 5, bw, 5);
+    g.fillStyle(0xffffff, 0.28); g.fillRect(-bw / 2 + 4, -bh / 2 + 3, bw - 8, 3);
+    g.fillStyle(p.outline, 1); g.fillCircle(-bw / 2 + 8, -bh / 2 + 8, 2.2); g.fillCircle(bw / 2 - 8, -bh / 2 + 8, 2.2); g.fillCircle(-bw / 2 + 8, bh / 2 - 8, 2.2); g.fillCircle(bw / 2 - 8, bh / 2 - 8, 2.2);
+    g.restore();
+    // a tuft of grass at the base
+    if (p.style === 'organic') { g.fillStyle(p.grassDark, 1); g.fillTriangle(x - bw / 2 + 4, y, x - bw / 2 + 12, y - 12, x - bw / 2 + 18, y); g.fillStyle(p.grass, 1); g.fillTriangle(x + bw / 2 - 20, y, x + bw / 2 - 12, y - 10, x + bw / 2 - 6, y); }
     return [g, t];
   }
 

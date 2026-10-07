@@ -15,16 +15,16 @@ export class Banana extends Phaser.GameObjects.Image implements Resettable<{ col
     this.id = id;
     this.baseY = y;
     this.phase = (x * 0.37 + y * 0.11) % (Math.PI * 2);
-    this.setDepth(DEPTH.objects).setScale(1.1);
+    this.setDepth(DEPTH.objects).setScale(0.62);
     scene.add.existing(this);
     scene.physics.add.existing(this, true);
-    this.body.setSize(26, 26).setOffset(3, 3);
+    this.body.setSize(44, 36).setOffset(14, 16);
   }
 
   tick(timeMs: number): void {
     if (this.collected) return;
     this.y = this.baseY + Math.sin(timeMs / 420 + this.phase) * 4;
-    this.rotation = Math.sin(timeMs / 600 + this.phase) * 0.12;
+    this.rotation = Math.sin(timeMs / 600 + this.phase) * 0.1;
   }
 
   collect(): boolean {

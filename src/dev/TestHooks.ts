@@ -36,12 +36,25 @@ export function installTestHooks(game: Phaser.Game): void {
     sim(ms: number, stepMs = 1000 / 60): void {
       const loop = game.loop;
       if (loop.running) loop.sleep();
+      // Phaser 4's TweenManager measures its own delta with Date.now(); feed it the step delta instead so
+      // tweens advance deterministically with everything else.
+      for (const sc of game.scene.getScenes(true)) {
+        const tm = sc.tweens as unknown as { getDelta: () => number; __simOrig?: () => number };
+        if (!tm.__simOrig) { tm.__simOrig = tm.getDelta; tm.getDelta = () => stepMs; }
+      }
       let t = this.simTime ?? Math.max(loop.time || 0, performance.now());
       const steps = Math.max(1, Math.round(ms / stepMs));
       for (let i = 0; i < steps; i++) { t += stepMs; game.step(t, stepMs); }
       this.simTime = t;
     },
-    wake(): void { if (!game.loop.running) game.loop.wake(); this.simTime = null; },
+    wake(): void {
+      for (const sc of game.scene.getScenes(false)) {
+        const tm = sc.tweens as unknown as { getDelta: () => number; __simOrig?: () => number };
+        if (tm.__simOrig) { tm.getDelta = tm.__simOrig; delete tm.__simOrig; }
+      }
+      if (!game.loop.running) game.loop.wake();
+      this.simTime = null;
+    },
     input: InputManager.instance,
     game,
   };

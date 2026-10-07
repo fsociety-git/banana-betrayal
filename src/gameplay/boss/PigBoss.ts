@@ -70,7 +70,7 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.forkGfx = scene.add.graphics();
     this.root.add(this.forkGfx);
     this.drawForklift();
-    this.trophy = scene.add.image(0, 0, 'banana').setScale(1.6).setTint(0xffd84a);
+    this.trophy = scene.add.image(0, 0, 'banana-gold').setScale(1);
     this.root.add(this.trophy);
     this.rig = new CharacterRig(scene, this.startX, arena.floorY - 44, CHARACTERS.pig);
     this.rig.setDepth(DEPTH.npc + 1);

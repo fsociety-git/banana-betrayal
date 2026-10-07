@@ -68,6 +68,7 @@ export const level1: LevelData = {
     { type: 'pig', x: 56, y: G - 1, id: 'pig-bridge' },
     { type: 'collapsing-bridge', x: 58, y: G, w: 10, id: 'bridge1', delayMs: 350, stepMs: 230 },
     { type: 'dialogue-trigger', x: 53, y: G - 5, w: 5, h: 5, id: 'd-bridge', line: 'l1-bridge', once: true },
+    { type: 'dialogue-trigger', x: 68, y: G - 5, w: 3, h: 5, id: 'd-bridge-survived', line: 'l1-bridge-survived', once: true },
     { type: 'sign', x: 78, y: G - 1, text: 'l1-coconut' },
     { type: 'decor', x: 81, y: G - 1, kind: 'palm' },
     { type: 'coconut', x: 81, y: G - 6, id: 'coco1', triggerWidth: 3 },

@@ -170,6 +170,7 @@ export class GameScene extends Phaser.Scene {
       toast: (text, ms) => UIRoot.toast(text, ms),
       groundBelow: (x, y) => this.groundBelow(x, y),
       onFlagFlee: (to) => this.fleeFlag(to),
+      playerAlert: (x) => { if (Math.abs(x - this.player.x) < 420 && this.player.alive) this.player.rig.setMood('alert', 700); },
     };
     this.world = new LevelWorld(ctx);
     this.world.build(data.objects);
@@ -200,6 +201,7 @@ export class GameScene extends Phaser.Scene {
     this.intro.show(campaignIndex >= 0 ? campaignIndex + 1 : null, introText.title, introText.subtitle);
     this.audio.playMusic(data.music ?? 'jungle');
     this.audio.setMusicIntensity(1);
+    this.cameras.main.fadeIn(this.settings.reducedMotion ? 1 : 380, 20, 35, 26);
 
     // input + global hooks
     const input = InputManager.instance;
@@ -222,7 +224,13 @@ export class GameScene extends Phaser.Scene {
 
     // player events
     this.player.events.on('jumped', () => { this.audio.play('jump', 1, 60); this.puffDust(this.player.x, this.player.feetY, 6); });
-    this.player.events.on('landed', (impact: number) => { if (impact > 150) { this.audio.play('land', Math.min(1.2, impact / 700), 80); this.puffDust(this.player.x, this.player.feetY, Math.round(4 + impact / 120)); } });
+    this.player.events.on('landed', (impact: number) => {
+      if (impact > 150) {
+        this.audio.play('land', Math.min(1.2, impact / 700), 80);
+        this.puffDust(this.player.x, this.player.feetY, Math.round(4 + impact / 120));
+        if (impact > 420 && !this.settings.reducedMotion) this.ringPuff(this.player.x, this.player.feetY - 4, 0.5 + impact / 1800);
+      }
+    });
     this.player.events.on('died', (cause: DeathCause) => this.onPlayerDied(cause));
     this.player.events.on('stateChanged', (next: string) => { if (next === 'respawning') this.respawn(); });
 
@@ -257,6 +265,30 @@ export class GameScene extends Phaser.Scene {
     this.dust.emitParticleAt(x, y - 2, n);
   }
 
+  /** Expanding ring for landings, pickups and checkpoints. */
+  private ringPuff(x: number, y: number, scale = 1, tint = 0xffffff): void {
+    if (this.settings.reducedMotion) return;
+    const ring = this.add.image(x, y, 'ring').setScale(0.3 * scale).setAlpha(0.7).setTint(tint).setDepth(DEPTH.particles);
+    this.tweens.add({ targets: ring, scaleX: 2.2 * scale, scaleY: 1.1 * scale, alpha: 0, duration: 320, ease: 'Quad.easeOut', onComplete: () => ring.destroy() });
+  }
+
+  /** A small banana floats up from the pickup point toward the HUD and fades. */
+  private collectFx(x: number, y: number): void {
+    this.sparkles?.emitParticleAt(x, y, 10);
+    this.ringPuff(x, y, 0.6, 0xf7c948);
+    if (this.settings.reducedMotion) return;
+    const icon = this.add.image(x, y, 'banana').setScale(0.5).setDepth(DEPTH.particles + 1);
+    this.tweens.add({ targets: icon, y: y - 70, scaleX: 0.3, scaleY: 0.3, alpha: 0, duration: 520, ease: 'Quad.easeOut', onComplete: () => icon.destroy() });
+  }
+
+  /** Confetti burst for checkpoints and victories. */
+  private confetti(x: number, y: number, n = 18): void {
+    if (this.settings.reducedMotion || !this.debris) return;
+    this.debris.setParticleTint([0xf7c948, 0xf4a7b4, 0x7ed957, 0x9fe3ff, 0xffffff]);
+    this.debris.emitParticleAt(x, y, n);
+    this.debris.setParticleTint([this.palette.plank, this.palette.plankDark, this.palette.outline]);
+  }
+
   private wirePhysics(): void {
     const p = this.player.proxy;
     this.physics.add.collider(p, this.terrain.solids);
@@ -273,7 +305,7 @@ export class GameScene extends Phaser.Scene {
   private collectBanana(b: Banana): void {
     if (!this.player.alive || !b.collect()) return;
     this.audio.play('collect', 1, 50);
-    this.sparkles?.emitParticleAt(b.x, b.y, 12);
+    this.collectFx(b.x, b.y);
     this.hud.setBananas(this.collectedCount(), this.bananas.length);
     bus.emit(Events.BananaCollected, this.collectedCount());
   }
@@ -297,6 +329,8 @@ export class GameScene extends Phaser.Scene {
     this.spentAtBaseline = this.bananasSpent;
     if (this.levelData.id === 'level2') { this.audio.play('receipt', 0.8, 0); c.printReceipt(); }
     this.audio.play('checkpoint', 1, 200);
+    this.confetti(c.footX, c.footY - 90, 20);
+    this.ringPuff(c.footX, c.footY - 60, 1.2, 0xf7c948);
     this.hud.flashCheckpoint(this.levelData.id === 'level2' ? 'Receipt printed' : 'Checkpoint');
     bus.emit(Events.CheckpointReached, c.id);
   }
@@ -343,6 +377,11 @@ export class GameScene extends Phaser.Scene {
     this.audio.play(cause === 'water' ? 'splash' : 'death', 1, 300);
     this.cameraCtl.shake(0.006, 220);
     this.captions.show(this.pickCaption(cause), PLAYER_TUNING.respawnDelayMs + 700);
+    if (!this.settings.reducedMotion) { const burst = this.add.image(this.player.x, this.player.feetY - 50, 'spark').setScale(1.4).setTint(0xfff1a8).setDepth(DEPTH.particles); this.tweens.add({ targets: burst, scaleX: 3, scaleY: 3, alpha: 0, angle: 90, duration: 260, onComplete: () => burst.destroy() }); }
+    // the nearest pig enjoys this a little too much
+    let nearest: import('../gameplay/objects/PigNPC').PigNPC | null = null, best = 720;
+    for (const pig of this.world.pigs) { const d = Math.abs(pig.footX - this.player.x); if (d < best) { best = d; nearest = pig; } }
+    if (nearest) { nearest.lookAt(this.player.x); nearest.react('laugh'); if (Math.random() < 0.35) this.time.delayedCall(500, () => this.sayLine('death-tease', false, 'pig')); }
     if (cause === 'bridge') this.time.delayedCall(900, () => this.sayLine('l1-bridge-fell', true, 'pig'));
   }
 
@@ -378,6 +417,7 @@ export class GameScene extends Phaser.Scene {
     this.deathContext = null;
     this.dialogue.hide();
     this.player.respawn();
+    this.player.rig.setMood('embarrassed', 900);
     this.cameraCtl.snapTo(this.player.x, this.player.feetY, this.player.facing);
     bus.emit(Events.PlayerRespawned);
   }
@@ -406,6 +446,8 @@ export class GameScene extends Phaser.Scene {
         this.player.body.setVelocityY(-560);
         this.audio.play('bossHit', 1, 200);
         this.cameraCtl.shake(0.008, 260);
+        if (!this.settings.reducedMotion) this.cameras.main.flash(140, 255, 241, 168);
+        this.confetti(boss.root.x, boss.root.y - 110, 14);
         this.sparkles?.emitParticleAt(boss.root.x, boss.root.y - 110, 18);
         this.hud.setBoss(boss.hp);
       }
@@ -447,7 +489,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(700, () => this.bossSay('l5-defeat'));
     // the "golden" banana trophy lands on the floor in front of the forklift
     const tx = Phaser.Math.Clamp(this.boss.root.x - 150, arena.left + 60, arena.right - 60);
-    const trophy = this.add.image(tx, arena.floorY - 24, 'banana').setScale(2).setTint(0xffd84a).setDepth(DEPTH.objects + 2);
+    const trophy = this.add.image(tx, arena.floorY - 24, 'banana-gold').setScale(1.2).setDepth(DEPTH.objects + 2);
     const glow = this.add.image(tx, arena.floorY - 24, 'glow').setScale(1.4).setTint(0xf7c948).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.objects + 1);
     const tzone = this.add.zone(tx, arena.floorY - 30, 60, 60);
     this.physics.add.existing(tzone, true);
@@ -456,7 +498,7 @@ export class GameScene extends Phaser.Scene {
     const lunch = this.add.graphics().setDepth(DEPTH.objects);
     lunch.fillStyle(0x2c1a0e, 1); lunch.fillRoundedRect(lx - 50, arena.floorY - 44, 100, 10, 4); lunch.fillRect(lx - 40, arena.floorY - 34, 8, 34); lunch.fillRect(lx + 32, arena.floorY - 34, 8, 34);
     lunch.fillStyle(0xe5484d, 1); lunch.fillRoundedRect(lx - 36, arena.floorY - 74, 44, 30, 5); lunch.fillStyle(0x2c1a0e, 1); lunch.fillRect(lx - 30, arena.floorY - 78, 32, 6);
-    const real = this.add.image(lx + 24, arena.floorY - 60, 'banana').setScale(1.2).setDepth(DEPTH.objects + 2);
+    const real = this.add.image(lx + 24, arena.floorY - 60, 'banana').setScale(0.7).setDepth(DEPTH.objects + 2);
     const realGlow = this.add.image(lx + 24, arena.floorY - 60, 'glow').setScale(0.8).setTint(0xfff1a8).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH.objects + 1);
     const rzone = this.add.zone(lx + 24, arena.floorY - 50, 50, 70);
     this.physics.add.existing(rzone, true);
@@ -559,7 +601,7 @@ export class GameScene extends Phaser.Scene {
     InputManager.instance.pollGamepad();
     this.world.update(dt, this.time.now);
     for (const b of this.bananas) if (!this.world.fleeing.some((f) => f.banana === b)) b.tick(this.time.now);
-    this.flag?.tick(dt);
+    if (this.flag) { this.flag.alert = !this.flag.fled && Math.abs(this.flag.x - this.player.x) < 340 && this.player.alive; this.flag.tick(dt); }
     this.player.update(dt);
     if (this.boss) {
       this.boss.update(this.bossStarted ? dt : 0, this.player.x);

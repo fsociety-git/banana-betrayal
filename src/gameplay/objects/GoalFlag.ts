@@ -8,6 +8,9 @@ export class GoalFlag extends Phaser.GameObjects.Container {
   fled = false;
   private cloth: Phaser.GameObjects.Graphics;
   private t = 0;
+  /** The flag has noticed the player and is getting nervous (pre-flee anticipation). */
+  alert = false;
+  private hopT = 0;
   footX: number;
   footY: number;
 
@@ -48,7 +51,15 @@ export class GoalFlag extends Phaser.GameObjects.Container {
 
   tick(dt: number): void {
     this.t += dt;
-    this.draw(Math.sin(this.t * 5) * 0.5);
+    if (this.alert) {
+      this.hopT += dt;
+      this.draw(Math.sin(this.t * 14) * 0.7);
+      const hop = Math.max(0, Math.sin(this.hopT * 6)) * 8;
+      if (!this.fled) this.setPosition(this.footX + Math.sin(this.t * 22) * 2, this.footY - hop);
+    } else {
+      this.draw(Math.sin(this.t * 5) * 0.5);
+      if (!this.fled && (this.x !== this.footX || this.y !== this.footY)) this.setPosition(this.footX, this.footY);
+    }
   }
 
   /** Hop to a new foot position over `ms` milliseconds (the fleeing-flag gag). */

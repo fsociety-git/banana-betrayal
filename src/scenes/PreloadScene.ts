@@ -22,6 +22,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('monkey-head', 'monkey-head.png');
     this.load.image('monkey-body', 'monkey-body.png');
     this.load.image('monkey-whole', 'monkey.png');
+    this.load.image('monkey-tail', 'monkey-tail.png');
+    this.load.image('pig-tail', 'pig-tail.png');
     this.load.image('pig-head', 'pig-head.png');
     this.load.image('pig-body', 'pig-body.png');
     this.load.image('pig-whole', 'pig.png');

@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { NAMES } from '../content/script';
 import { formatTime } from '../ui/Hud';
+import { drawBananaCanvas } from '../gameplay/fx/bananaShape';
 
 export interface CardData {
   levelName: string;
@@ -62,9 +63,7 @@ export function downloadResultsCard(scene: Phaser.Scene, d: CardData): void {
     ctx.restore();
   }
   // banana glyph
-  ctx.save(); ctx.translate(820, 120); ctx.rotate(-0.5);
-  ctx.fillStyle = '#2c1a0e'; ellipse(ctx, 0, 0, 70, 30); ctx.fillStyle = '#f7c948'; ellipse(ctx, 0, 0, 62, 22); ctx.fillStyle = '#ffe58a'; ellipse(ctx, -14, -6, 30, 7);
-  ctx.restore();
+  drawBananaCanvas(ctx, 840, 130, 2.2, d.campaignComplete);
   canvas.toBlob((blob) => {
     if (!blob) return;
     const a = document.createElement('a');
@@ -77,7 +76,4 @@ export function downloadResultsCard(scene: Phaser.Scene, d: CardData): void {
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-}
-function ellipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number): void {
-  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
 }

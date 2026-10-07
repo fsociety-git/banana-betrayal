@@ -26,7 +26,7 @@ export class CheckpointPost extends Phaser.GameObjects.Container {
     post.fillStyle(palette.plank, 1); post.fillRoundedRect(-3, -90, 6, 88, 2);
     post.fillStyle(palette.outline, 1); post.fillEllipse(0, 0, 30, 8);
     this.flag = scene.add.graphics();
-    this.top = scene.add.image(0, -96, 'banana').setScale(0.7).setAlpha(0.5);
+    this.top = scene.add.image(0, -98, 'banana').setScale(0.42).setAlpha(0.5);
     this.add([post, this.flag, this.top]);
     this.drawFlag(false);
     this.setDepth(DEPTH.objects - 1);

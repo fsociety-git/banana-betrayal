@@ -24,6 +24,10 @@ export interface CharacterDef {
   bodyHeight: number;
   /** Horizontal offset of the collision body centre from the texture centre (logical px). */
   bodyOffsetX: number;
+  /** Optional separate tail layer (same canvas) with its pivot as canvas fractions. */
+  tailKey?: string;
+  tailPivotX?: number;
+  tailPivotY?: number;
 }
 
 export const CHARACTERS: Record<'monkey' | 'pig', CharacterDef> = {
@@ -32,11 +36,13 @@ export const CHARACTERS: Record<'monkey' | 'pig', CharacterDef> = {
     headKey: 'monkey-head', bodyKey: 'monkey-body', wholeKey: 'monkey-whole',
     texW: 148, texH: 318, feetFrac: 0.993, neckX: 0.534, neckY: 0.428,
     displayHeight: 96, bodyWidth: 36, bodyHeight: 82, bodyOffsetX: 4,
+    tailKey: 'monkey-tail', tailPivotX: 0.409, tailPivotY: 0.696,
   },
   pig: {
     id: 'pig', displayName: 'Pig',
     headKey: 'pig-head', bodyKey: 'pig-body', wholeKey: 'pig-whole',
     texW: 157, texH: 304, feetFrac: 0.993, neckX: 0.573, neckY: 0.424,
     displayHeight: 96, bodyWidth: 44, bodyHeight: 80, bodyOffsetX: 2,
+    tailKey: 'pig-tail', tailPivotX: 0.149, tailPivotY: 0.69,
   },
 };

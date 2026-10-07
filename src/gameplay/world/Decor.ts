@@ -25,26 +25,39 @@ export function placeDecor(scene: Phaser.Scene, kind: string, footX: number, foo
 function drawDecor(g: Phaser.GameObjects.Graphics, kind: string, p: ThemePalette, variant: number, rng: Phaser.Math.RandomDataGenerator): { w: number; h: number } | null {
   switch (kind) {
     case 'palm': {
-      const w = 220, h = 300, bx = 90;
-      g.fillStyle(p.outline, 1); g.fillRoundedRect(bx - 11, 70, 22, 230, 8);
-      g.fillStyle(p.plank, 1); g.fillRoundedRect(bx - 8, 73, 16, 227, 6);
-      g.fillStyle(p.plankDark, 0.8); for (let y = 90; y < 290; y += 22) g.fillRect(bx - 8, y, 16, 4);
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + variant * 0.4;
-        const lx = bx + Math.cos(a) * 62, ly = 68 + Math.sin(a) * 26 - 18;
-        g.fillStyle(p.outline, 1); g.fillEllipse(lx, ly, 96, 30);
-        g.fillStyle(i % 2 ? p.grassDark : p.grass, 1); g.fillEllipse(lx, ly, 86, 22);
+      const w = 240, h = 320, bx = 100;
+      // curved trunk made of stacked segments
+      for (let i = 0; i < 11; i++) {
+        const t = i / 10, sx = bx + Math.sin(t * 1.4) * 22, sy = 300 - i * 22;
+        g.fillStyle(p.outline, 1); g.fillRoundedRect(sx - 13, sy - 12, 26, 26, 6);
+        g.fillStyle(i % 2 ? p.plank : p.plankDark, 1); g.fillRoundedRect(sx - 10, sy - 9, 20, 20, 5);
+        g.fillStyle(0xffffff, 0.18); g.fillRect(sx - 7, sy - 7, 4, 16);
       }
-      g.fillStyle(p.outline, 1); g.fillCircle(bx, 62, 16); g.fillStyle(0x6b4a2b, 1); g.fillCircle(bx - 10, 64, 8); g.fillCircle(bx + 8, 68, 8); g.fillCircle(bx, 56, 8);
+      const tx = bx + Math.sin(1.4) * 22, ty = 80;
+      // fronds: layered, with a darker underside
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + variant * 0.4;
+        const len = 100 + (i % 2) * 18;
+        const ex = tx + Math.cos(a) * len, ey = ty + Math.sin(a) * len * 0.45 - 10;
+        const mx = tx + Math.cos(a) * len * 0.5, my = ty + Math.sin(a) * len * 0.5 * 0.45 - 28;
+        g.fillStyle(p.outline, 1); g.fillTriangle(tx, ty, mx - 14, my - 14, ex, ey); g.fillTriangle(tx, ty, mx + 14, my + 14, ex, ey);
+        g.fillStyle(i % 2 ? p.grassDark : p.grass, 1); g.fillTriangle(tx, ty, mx - 9, my - 9, ex - 4, ey - 2); g.fillTriangle(tx, ty, mx + 9, my + 9, ex - 4, ey - 2);
+        g.fillStyle(0xffffff, 0.14); g.fillTriangle(tx, ty, mx - 4, my - 4, ex - 10, ey - 6);
+      }
+      // coconut cluster
+      g.fillStyle(p.outline, 1); g.fillCircle(tx - 12, ty + 16, 13); g.fillCircle(tx + 10, ty + 18, 13); g.fillCircle(tx - 1, ty + 4, 13);
+      g.fillStyle(0x6b4a2b, 1); g.fillCircle(tx - 12, ty + 16, 10); g.fillCircle(tx + 10, ty + 18, 10); g.fillCircle(tx - 1, ty + 4, 10);
+      g.fillStyle(0x8a6540, 1); g.fillCircle(tx - 15, ty + 12, 4); g.fillCircle(tx + 7, ty + 14, 4); g.fillCircle(tx - 4, ty, 4);
       return { w, h };
     }
     case 'bush': {
-      const w = 120, h = 70;
-      g.fillStyle(p.outline, 1);
-      for (const [cx, cy, r] of [[30, 48, 26], [62, 40, 32], [94, 50, 24]] as const) g.fillCircle(cx, cy, r + 3);
-      for (const [cx, cy, r, c] of [[30, 48, 26, p.grassDark], [94, 50, 24, p.grassDark], [62, 40, 32, p.grass]] as const) { g.fillStyle(c, 1); g.fillCircle(cx, cy, r); }
-      g.fillStyle(0xffffff, 0.25); g.fillCircle(54, 30, 10);
-      if (variant === 1) { g.fillStyle(0xe5484d, 1); g.fillCircle(44, 44, 4); g.fillCircle(72, 36, 4); g.fillCircle(60, 52, 4); }
+      const w = 130, h = 80;
+      const blobs = [[32, 54, 28], [66, 44, 34], [100, 56, 26], [50, 30, 20], [84, 32, 18]] as const;
+      g.fillStyle(p.outline, 1); for (const [cx, cy, r] of blobs) g.fillCircle(cx, cy, r + 3);
+      for (const [cx, cy, r] of blobs) { g.fillStyle(cy > 40 ? p.grassDark : p.grass, 1); g.fillCircle(cx, cy, r); }
+      g.fillStyle(p.grass, 1); for (const [cx, cy, r] of blobs) g.fillCircle(cx - r * 0.25, cy - r * 0.3, r * 0.55);
+      g.fillStyle(0xffffff, 0.28); g.fillCircle(58, 24, 8); g.fillCircle(86, 28, 5);
+      if (variant === 1) { g.fillStyle(p.outline, 1); for (const [bx, by] of [[44, 48], [72, 40], [60, 58], [94, 50]] as const) g.fillCircle(bx, by, 5); g.fillStyle(0xe5484d, 1); for (const [bx, by] of [[44, 48], [72, 40], [60, 58], [94, 50]] as const) g.fillCircle(bx, by, 3.5); g.fillStyle(0xffffff, 0.7); for (const [bx, by] of [[44, 48], [72, 40], [60, 58], [94, 50]] as const) g.fillCircle(bx - 1, by - 1, 1.2); }
       return { w, h };
     }
     case 'flowers': {
@@ -60,10 +73,12 @@ function drawDecor(g: Phaser.GameObjects.Graphics, kind: string, p: ThemePalette
       return { w, h };
     }
     case 'rock': {
-      const w = 80, h = 44;
-      g.fillStyle(p.outline, 1); g.fillEllipse(40, 30, 76, 32);
-      g.fillStyle(p.groundLight, 1); g.fillEllipse(40, 30, 68, 24);
-      g.fillStyle(0xffffff, 0.3); g.fillEllipse(30, 24, 20, 8);
+      const w = 84, h = 50;
+      g.fillStyle(p.outline, 1); g.fillEllipse(42, 34, 80, 32); g.fillCircle(30, 22, 18); g.fillCircle(56, 26, 14);
+      g.fillStyle(p.stone, 1); g.fillEllipse(42, 34, 72, 24); g.fillCircle(30, 22, 15); g.fillCircle(56, 26, 11);
+      g.fillStyle(0x000000, 0.14); g.fillEllipse(48, 40, 56, 10);
+      g.fillStyle(0xffffff, 0.35); g.fillEllipse(26, 18, 14, 6);
+      g.fillStyle(p.grassDark, 1); g.fillTriangle(8, 48, 14, 36, 20, 48); g.fillTriangle(66, 48, 72, 38, 78, 48);
       return { w, h };
     }
     case 'reeds': {

@@ -82,7 +82,23 @@ export class PigNPC implements Speaker {
 
   onSpeak(): void {
     this.laughTween?.stop();
+    this.rig.setMood('smug', 1600);
     this.laughTween = this.scene.tweens.add({ targets: this.rig, y: this.rig.y - 8, duration: 90, yoyo: true, repeat: 2, ease: 'Quad.easeOut', onComplete: () => this.rig.setY(this.footY) });
+  }
+
+  /** Short physical reaction: a chuckle hop, a smug chin-lift, or a shrug. */
+  react(kind: 'laugh' | 'smug' | 'shrug'): void {
+    this.laughTween?.stop();
+    if (kind === 'laugh') {
+      this.rig.setMood('smug', 1400);
+      this.laughTween = this.scene.tweens.add({ targets: this.rig, y: this.rig.y - 10, duration: 80, yoyo: true, repeat: 4, ease: 'Quad.easeOut', onComplete: () => this.rig.setY(this.footY) });
+    } else if (kind === 'smug') {
+      this.rig.setMood('smug', 1800);
+      this.rig.impulse(0.94, 1.08, 120);
+    } else {
+      this.rig.setMood('alert', 900);
+      this.rig.impulse(1.08, 0.94, 120);
+    }
   }
 
   /** Face toward a world x position. */

@@ -5,13 +5,16 @@
 A comedy 2D platformer for the browser. A monkey wants the legendary golden banana; a pig claims to know the way.
 Every helpful suggestion makes the journey worse. Built with Phaser 4, TypeScript and Vite; ships as a static site.
 
-![Title screen](docs/screenshots/title.jpg)
+![Title screen](docs/screenshots/after/title.jpg)
 
 | | |
 |---|---|
-| ![Level 1: the totally safe bridge](docs/screenshots/level1-bridge.jpg) | ![Level 4: Cloud Storage](docs/screenshots/level4-clouds.jpg) |
+| ![Level 1: Trust Issues](docs/screenshots/after/level1-start.jpg) | ![Level 1: the totally safe bridge](docs/screenshots/after/level1-bridge.jpg) |
+| ![Level 2: Customer Support Swamp](docs/screenshots/after/level2.jpg) | ![Level 3: The Banana Economy](docs/screenshots/after/level3.jpg) |
+| ![Level 4: Cloud Storage](docs/screenshots/after/level4.jpg) | ![Level 5: The Oinkcident](docs/screenshots/after/level5.jpg) |
 | ![Level 5: the pig's banana forklift](docs/screenshots/level5-boss.jpg) | ![Results card](docs/screenshots/results.jpg) |
-| ![Touch controls, portrait](docs/screenshots/mobile-portrait.jpg) | ![Touch controls, landscape](docs/screenshots/mobile-landscape.jpg) |
+
+Before/after captures of the art pass live in `docs/screenshots/before/` and `docs/screenshots/after/`.
 
 ## Play it locally
 
@@ -133,6 +136,9 @@ gh repo create banana-betrayal --public --source=. --remote=origin --push
 After the first workflow run the game is served at `https://<user>.github.io/banana-betrayal/`.
 
 ## Asset checklist (optional, improves animation)
+
+Ready-to-use Higgsfield prompts with pose, angle, framing, background and consistency requirements are in
+[`docs/asset-request.md`](docs/asset-request.md).
 
 The game is complete with the two supplied portraits. Extra poses would materially improve the feel; each should
 be the same character on a transparent background at roughly the same scale:

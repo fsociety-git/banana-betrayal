@@ -21,7 +21,10 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
   private joked = false;
   onJoke: (() => void) | null = null;
   onHop: (() => void) | null = null;
+  onGiveUp: (() => void) | null = null;
   triggerDistance = 92;
+  noticeDistance = 180;
+  private gaveUp = false;
 
   constructor(scene: Phaser.Scene, id: string, x: number, y: number, pathTiles: Point[]) {
     this.id = id;
@@ -34,9 +37,22 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
   /** Call every frame with the player's feet position. Returns true if it hopped. */
   update(timeMs: number, playerX: number, playerY: number): boolean {
     this.banana.tick(timeMs);
-    if (this.banana.collected || this.hopping || this.hopIndex >= this.path.length) return false;
+    if (this.banana.collected || this.hopping) return false;
     const dx = this.banana.x - playerX, dy = this.banana.y - (playerY - 40);
-    if (dx * dx + dy * dy > this.triggerDistance * this.triggerDistance) return false;
+    const d2 = dx * dx + dy * dy;
+    if (this.hopIndex >= this.path.length) {
+      // out of hops: it slumps and gives up (payoff of the chase)
+      if (!this.gaveUp && d2 < this.noticeDistance * this.noticeDistance) { this.gaveUp = true; this.onGiveUp?.(); }
+      if (this.gaveUp) this.banana.rotation = 0.55 + Math.sin(timeMs / 300) * 0.04;
+      return false;
+    }
+    if (d2 < this.noticeDistance * this.noticeDistance) {
+      // anticipation: nervous shiver before it bolts
+      const k = 1 - Math.sqrt(d2) / this.noticeDistance;
+      this.banana.rotation += Math.sin(timeMs / 28) * 0.22 * k;
+      this.banana.y -= Math.abs(Math.sin(timeMs / 90)) * 3 * k;
+    }
+    if (d2 > this.triggerDistance * this.triggerDistance) return false;
     this.hop();
     return true;
   }
@@ -66,12 +82,14 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
   snapshot(): { hopIndex: number; collected: boolean; joked: boolean } {
     return { hopIndex: this.hopIndex, collected: this.banana.collected, joked: this.joked };
   }
+  get hopsLeft(): number { return this.path.length - this.hopIndex; }
 
   restore(s: { hopIndex: number; collected: boolean; joked: boolean }): void {
     this.scene.tweens.killTweensOf(this.banana);
     this.hopping = false;
     this.hopIndex = s.hopIndex;
     this.joked = s.joked;
+    this.gaveUp = false;
     let x = this.startX, y = this.startY;
     for (let i = 0; i < s.hopIndex; i++) { x += this.path[i].x; y += this.path[i].y; }
     this.banana.setPosition(x, y).setRotation(0);

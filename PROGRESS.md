@@ -41,3 +41,14 @@
 - Production build (195 kB app + 1.37 MB Phaser, 417 kB gzip total) verified from a sub-directory; GitHub Pages workflow added; README with screenshots, controls, architecture, editing guide, limitations.
 - 36 unit tests passing. Browser playtests of every mechanic, the boss and the ending via deterministic stepping.
 - Deployment itself not performed: no repository was authorised; exact remaining step documented in README.
+
+## Art-direction, animation and comedy polish pass
+- Bananas: one shared crescent silhouette (`src/gameplay/fx/bananaShape.ts`) for pickups, checkpoint tops, the title pedestal, the boss trophy, the ending and the results card; a golden variant with highlight and restrained sparkle.
+- Backdrop: sun glow, drifting cloud layer, far landmark per theme (kapok tree + temple, dead swamp trees + stilt shack, smokestacks + banana billboard, cloud shelves + rainbow, gold skyline + pig statue), richer mid/near vegetation and a hanging canopy/duct/bunting layer framing the top. Low quality keeps two layers; reduced motion drops ambient motes.
+- Terrain: topsoil band, deep soil, stones, rounded convex corners, grass blades above the edge, hanging roots under floating ground; metal plates with rivets and hazard stripes (factory), gilded trim (HQ), puffy cloud tops (sky); planks with grain, brackets and nails; signs with two posts, grain, nails and a tuft of grass.
+- Characters: 3 px cartoon outline around the photo heads (matches body line weight), separate tail layers (monkey, pig) that sway, wag and flick; jump anticipation (crouch → stretch → settle); landing compression scaled by impact; moods (smug, embarrassed, alert) used by the pig when speaking/laughing, by the monkey after a respawn and when a trap arms nearby.
+- Title: staged loop (two-step sneak, monkey turns with "!", pig whistles "♪" and backs off, ~10 s period); static tableau under reduced motion; larger characters, stone pedestal, spotlight beam.
+- Comedy staging: fleeing banana shivers before it bolts and slumps when it gives up (pig: "Fine. It is tired. Take it."); pig comments when you survive the bridge and when the coconut lands; the finish flag fidgets and hops when you get close; the nearest pig chuckles at every death and sometimes teases; captions already rotate per cause.
+- Effects: landing rings on hard landings, banana fly-up + ring on pickups, confetti + ring on checkpoints, flash + confetti on boss hits, fade-in on level start.
+- Test hook: `sim()` now also drives Phaser 4's wall-clock tween manager so tween-based animation is testable deterministically.
+- Measured (same machine, sim CPU per frame): L1 2.5 ms, L3 2.7 → 4.1 ms, L5 3.6 ms. Real-time frame time is vsync-bound (16.7 ms at 60 Hz, 6.9 ms earlier at 120 Hz).
