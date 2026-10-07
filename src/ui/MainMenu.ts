@@ -37,7 +37,7 @@ export class MainMenu {
     row.append(lvl, button('Settings', actions.settings, 'secondary small'), button('Credits', actions.credits, 'secondary small'));
     stack.append(row);
     const hint = el('p', 'bb-muted bb-title-hint');
-    hint.innerHTML = '<span class="bb-kbd">←</span><span class="bb-kbd">→</span> move · <span class="bb-kbd">Space</span> jump · <span class="bb-kbd">Esc</span> pause · <span class="bb-kbd">M</span> mute';
+    hint.innerHTML = '<span class="bb-kbd">←</span><span class="bb-kbd">→</span> move · <span class="bb-kbd">Space</span> jump · <span class="bb-kbd">J</span> bonk · <span class="bb-kbd">E</span> talk · <span class="bb-kbd">Esc</span> pause · <span class="bb-kbd">M</span> mute';
     wrap.append(logo, sub, stack, hint);
     if (progress.pigUnlocked) wrap.append(el('p', 'bb-unlock-badge', '🐷 Dukkar unlocked — choose a character when you press Play'));
     this.node = UIRoot.mount(wrap);
