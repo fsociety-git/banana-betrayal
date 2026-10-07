@@ -3,12 +3,15 @@ import './styles/ui.css';
 import { GAME_HEIGHT, GAME_WIDTH } from './core/constants';
 import { InputManager } from './core/input/InputManager';
 import { initRenderScale } from './core/render/RenderScale';
+import { SaveManager } from './core/save/SaveManager';
+import { SettingsService } from './core/settings/SettingsService';
 import { devFlags } from './core/devFlags';
 import { DevOverlay } from './dev/DevOverlay';
 import { installTestHooks } from './dev/TestHooks';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { PreloadScene } from './scenes/PreloadScene';
+import { TitleScene } from './scenes/TitleScene';
 import { el, UIRoot } from './ui/UIRoot';
 
 function supported(): boolean {
@@ -28,7 +31,8 @@ function showUnsupported(): void {
 
 function boot(): void {
   if (!supported()) { showUnsupported(); return; }
-  const rs = initRenderScale('high');
+  const save = SaveManager.instance;
+  const rs = initRenderScale(save.settings.quality);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
@@ -40,8 +44,11 @@ function boot(): void {
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false, fps: 120, fixedStep: true } },
     audio: { noAudio: true },
     disableContextMenu: true,
-    scene: [BootScene, PreloadScene, GameScene],
+    scene: [BootScene, PreloadScene, TitleScene, GameScene],
   });
+  SettingsService.instance.apply();
+  if (!save.persistent) UIRoot.toast('Storage is unavailable in this browser: progress will not be saved.', 5000);
+  else if (save.loadWarning) UIRoot.toast(save.loadWarning, 4000);
   const input = InputManager.instance;
   input.on('dev', () => DevOverlay.instance.toggle());
   input.on('fullscreen', () => {

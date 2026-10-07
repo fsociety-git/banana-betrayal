@@ -25,9 +25,9 @@ export type LevelObjectDef =
   | { type: 'pig'; x: number; y: number; id: string; pose?: 'idle' | 'shack' | 'glass' | 'umbrella' | 'manager'; flip?: boolean }
   | { type: 'moving-platform'; x: number; y: number; w: number; id?: string; path: Point[]; speed: number; pauseMs?: number; carries?: boolean }
   | { type: 'collapsing-bridge'; x: number; y: number; w: number; id: string; delayMs?: number; stepMs?: number }
-  | { type: 'fleeing-banana'; x: number; y: number; id: string; hops: number; hopDistance?: number }
+  | { type: 'fleeing-banana'; x: number; y: number; id: string; path: Point[] }
   | { type: 'coconut'; x: number; y: number; id: string; triggerWidth?: number }
-  | { type: 'fleeing-flag'; x: number; y: number; id: string; fleeTo: Point }
+  | { type: 'fleeing-flag'; x: number; y: number; w: number; h: number; id: string; fleeTo: Point }
   | { type: 'sinking-platform'; x: number; y: number; w: number; id?: string; sinkDepth?: number; warnMs?: number }
   | { type: 'bubble-spawner'; x: number; y: number; id?: string; intervalMs?: number; liftHeight?: number }
   | { type: 'croc-platform'; x: number; y: number; w: number; id?: string; cycleMs?: number; openMs?: number; phase?: number }

@@ -7,7 +7,8 @@ import type { ThemePalette } from '../world/themes';
  * Reaching one is a save of position AND world state (see SnapshotRegistry); the post never lies.
  */
 export class CheckpointPost extends Phaser.GameObjects.Container {
-  declare body: Phaser.Physics.Arcade.StaticBody;
+  /** Trigger area (static body). Containers cannot carry static bodies in Phaser 4. */
+  readonly zone: Phaser.GameObjects.Zone;
   readonly id: string;
   readonly index: number;
   readonly footX: number;
@@ -30,8 +31,13 @@ export class CheckpointPost extends Phaser.GameObjects.Container {
     this.drawFlag(false);
     this.setDepth(DEPTH.objects - 1);
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
-    this.body.setSize(40, 110).setOffset(-20, -100);
+    this.zone = scene.add.zone(x, y - 50, 44, 110);
+    scene.physics.add.existing(this.zone, true);
+  }
+
+  override destroy(fromScene?: boolean): void {
+    this.zone.destroy();
+    super.destroy(fromScene);
   }
 
   private drawFlag(active: boolean): void {

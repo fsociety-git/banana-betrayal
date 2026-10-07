@@ -153,3 +153,42 @@ html, body {
   .bb-panel { padding: 1rem 1.1rem; }
   .bb-chip { font-size: 0.9rem; }
 }
+
+/* ---------- Level intro card ---------- */
+.bb-intro { position: absolute; left: 0; right: 0; top: 18%; display: flex; justify-content: center; pointer-events: none; padding: 0 1rem; animation: bb-fade-in 300ms ease both; }
+.bb-intro.out { animation: bb-fade-out 450ms ease both; }
+.bb-intro-card { text-align: center; color: #fff8e7; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 0, 0, 0.35); animation: bb-rise 500ms cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.bb-intro-kicker { font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.9rem; color: var(--bb-accent); }
+.bb-intro-title { margin: 0.1em 0 0; font-size: clamp(2rem, 7vmin, 3.4rem); font-weight: 900; line-height: 1; }
+.bb-intro-sub { margin: 0.4em 0 0; font-size: clamp(1rem, 2.6vmin, 1.3rem); font-weight: 600; opacity: 0.95; }
+.bb-results .bb-quote { font-style: italic; opacity: 0.85; }
+.bb-statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+.bb-stat { background: rgba(42, 29, 18, 0.08); border: 2px solid rgba(42, 29, 18, 0.25); border-radius: 12px; padding: 0.6rem 0.4rem; text-align: center; }
+.bb-stat.best { background: rgba(247, 201, 72, 0.5); border-color: #4a3000; }
+.bb-stat-value { font-size: 1.5rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.bb-stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; font-weight: 700; }
+@keyframes bb-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes bb-rise { from { transform: translateY(20px) scale(0.92); } to { transform: none; } }
+
+/* ---------- Title menu ---------- */
+.bb-title-menu { position: absolute; left: 0; right: 0; top: calc(6% + var(--safe-top)); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0 1rem; pointer-events: none; animation: bb-fade-in 400ms ease both; }
+.bb-title-menu > * { pointer-events: auto; }
+.bb-logo { text-align: center; line-height: 0.9; filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35)); }
+.bb-logo-top { font-size: clamp(2.6rem, 9vmin, 5rem); font-weight: 900; color: var(--bb-accent); letter-spacing: 0.04em; -webkit-text-stroke: 2px #4a3000; }
+.bb-logo-bottom { font-size: clamp(2.2rem, 8vmin, 4.4rem); font-weight: 900; color: var(--bb-pig); letter-spacing: 0.12em; -webkit-text-stroke: 2px #4a1a24; transform: rotate(-2deg); }
+.bb-logo-sub { margin: 0.2rem 0 0; font-weight: 700; color: #fff8e7; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); font-size: clamp(0.95rem, 2.4vmin, 1.2rem); }
+.bb-title-actions { align-items: center; margin-top: 0.4rem; }
+.bb-title-secondary { justify-content: center; }
+.bb-title-hint { color: #fff8e7; text-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+.bb-primary { font-size: 1.25rem; padding: 0.75em 2.2em; }
+.bb-unlock-badge { background: rgba(244, 167, 180, 0.9); color: #4a1a24; border: 2px solid #4a1a24; border-radius: 999px; padding: 0.3em 0.9em; font-weight: 700; }
+.bb-section { margin-top: 0.4rem !important; }
+.bb-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.6rem; }
+.bb-level-card { font: inherit; text-align: left; background: #fff; color: #2a1d12; border: 3px solid #3a2a1c; border-radius: 12px; padding: 0.6rem 0.7rem; cursor: pointer; display: flex; flex-direction: column; gap: 0.2rem; box-shadow: 0 3px 0 #3a2a1c; }
+.bb-level-card:disabled { opacity: 0.5; cursor: default; }
+.bb-level-card .num { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 800; color: #8a5a2b; }
+.bb-level-card .name { font-weight: 800; font-size: 1.05rem; }
+.bb-level-card .meta { font-size: 0.8rem; opacity: 0.75; font-variant-numeric: tabular-nums; }
+.bb-credits-list { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; }
+.bb-credits-list dt { font-weight: 800; opacity: 0.8; }
+.bb-credits-list dd { margin: 0; }

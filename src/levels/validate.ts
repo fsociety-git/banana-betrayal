@@ -41,7 +41,8 @@ export function validateLevel(data: LevelData): ValidationIssue[] {
     if ('id' in o && o.id) ids.set(o.id, (ids.get(o.id) ?? 0) + 1);
     if (o.type === 'moving-platform' && o.path.length < 1) err(`moving-platform at (${o.x},${o.y}) needs at least one path point`);
     if (o.type === 'moving-platform' && o.speed <= 0) err(`moving-platform at (${o.x},${o.y}) needs speed > 0`);
-    if (o.type === 'fleeing-banana' && o.hops < 1) err(`fleeing-banana ${o.id} needs hops >= 1`);
+    if (o.type === 'fleeing-banana' && o.path.length < 1) err(`fleeing-banana ${o.id} needs at least one hop point`);
+    if (o.type === 'fleeing-flag' && (o.fleeTo.x < 0 || o.fleeTo.y < 0 || o.fleeTo.x >= cols || o.fleeTo.y >= rows)) err(`fleeing-flag ${o.id} flees out of bounds`);
     if (o.type === 'wind' && o.force === 0) warn(`wind ${o.id ?? ''} has zero force`);
   }
   for (const [id, n] of ids) if (n > 1) err(`duplicate object id '${id}' (${n})`);

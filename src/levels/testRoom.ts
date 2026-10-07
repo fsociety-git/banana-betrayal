@@ -25,6 +25,6 @@ export const testRoom: LevelData = {
   objects: [
     { type: 'moving-platform', x: 49, y: 10, w: 2, id: 'mp1', path: [{ x: 4, y: 0 }], speed: 90, pauseMs: 400 },
     { type: 'moving-platform', x: 57, y: 9, w: 2, id: 'mp2', path: [{ x: 0, y: -4 }], speed: 70, pauseMs: 500 },
-    { type: 'sign', x: 3, y: 10, text: 'Test room. Nothing here is a joke. Yet.' },
+    { type: 'sign', x: 3, y: 10, text: 'test' },
   ],
 };

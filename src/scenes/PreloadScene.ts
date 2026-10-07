@@ -28,6 +28,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('Game', { levelId: devFlags.startLevel ?? 'test', character: devFlags.character ?? 'monkey' });
+    if (devFlags.startLevel) this.scene.start('Game', { levelId: devFlags.startLevel, character: devFlags.character ?? 'monkey' });
+    else this.scene.start('Title');
   }
 }

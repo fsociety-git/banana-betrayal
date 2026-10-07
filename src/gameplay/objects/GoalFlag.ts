@@ -3,7 +3,9 @@ import { DEPTH } from '../../core/constants';
 
 /** Level exit. Waves gently; `runTo(x)` lets the Level 1 joke make it flee once before being cornered. */
 export class GoalFlag extends Phaser.GameObjects.Container {
-  declare body: Phaser.Physics.Arcade.StaticBody;
+  readonly zone: Phaser.GameObjects.Zone;
+  /** True once the fleeing gag has played. */
+  fled = false;
   private cloth: Phaser.GameObjects.Graphics;
   private t = 0;
   footX: number;
@@ -20,9 +22,16 @@ export class GoalFlag extends Phaser.GameObjects.Container {
     this.add([pole, this.cloth]);
     this.setDepth(DEPTH.objects);
     scene.add.existing(this);
-    scene.physics.add.existing(this, true);
-    this.body.setSize(44, 124).setOffset(-16, -120);
+    this.zone = scene.add.zone(x + 6, y - 60, 44, 124);
+    scene.physics.add.existing(this.zone, true);
     this.draw(0);
+  }
+
+  private get zoneBody(): Phaser.Physics.Arcade.StaticBody { return this.zone.body as Phaser.Physics.Arcade.StaticBody; }
+
+  override destroy(fromScene?: boolean): void {
+    this.zone.destroy();
+    super.destroy(fromScene);
   }
 
   private draw(wave: number): void {
@@ -45,11 +54,18 @@ export class GoalFlag extends Phaser.GameObjects.Container {
   /** Hop to a new foot position over `ms` milliseconds (the fleeing-flag gag). */
   runTo(x: number, y: number, ms: number): Promise<void> {
     return new Promise((resolve) => {
-      this.body.enable = false;
+      this.zoneBody.enable = false;
+      const fromY = this.footY;
       this.scene.tweens.add({
-        targets: this, x, y, duration: ms, ease: 'Quad.easeInOut',
-        onUpdate: (tw) => { this.y = Phaser.Math.Linear(this.footY, y, tw.progress) - Math.abs(Math.sin(tw.progress * Math.PI * 4)) * 22; },
-        onComplete: () => { this.footX = x; this.footY = y; this.setPosition(x, y); this.body.reset(x, y); this.body.enable = true; resolve(); },
+        targets: this, x, duration: ms, ease: 'Quad.easeInOut',
+        onUpdate: (tw) => { this.y = Phaser.Math.Linear(fromY, y, tw.progress) - Math.abs(Math.sin(tw.progress * Math.PI * 4)) * 22; },
+        onComplete: () => {
+          this.footX = x; this.footY = y; this.setPosition(x, y);
+          this.zone.setPosition(x + 6, y - 60);
+          this.zoneBody.reset(x + 6, y - 60);
+          this.zoneBody.enable = true;
+          resolve();
+        },
       });
     });
   }

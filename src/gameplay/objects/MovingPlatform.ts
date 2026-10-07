@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { DEPTH, TILE } from '../../core/constants';
 import type { Point } from '../../levels/types';
+import type { Resettable } from '../world/SnapshotRegistry';
 import type { ThemePalette } from '../world/themes';
 
 /**
@@ -8,7 +9,7 @@ import type { ThemePalette } from '../world/themes';
  * (body.moves = false) so the carry delta handed to riders is exact and deterministic; Arcade friction is
  * disabled to avoid applying the carry twice.
  */
-export class MovingPlatform extends Phaser.GameObjects.Container {
+export class MovingPlatform extends Phaser.GameObjects.Container implements Resettable<{ x: number; y: number; segment: number; waitLeft: number }> {
   declare body: Phaser.Physics.Arcade.Body;
   readonly widthPx: number;
   readonly heightPx = 20;
@@ -56,11 +57,19 @@ export class MovingPlatform extends Phaser.GameObjects.Container {
     return g;
   }
 
-  /** Reset to the start of the path (checkpoint restore). */
+  /** Reset to the start of the path. */
   resetToStart(): void {
-    this.segment = 0; this.waitLeft = 0; this.deltaX = this.deltaY = 0;
-    this.setPosition(this.startPos.x, this.startPos.y);
-    this.body.reset(this.startPos.x, this.startPos.y);
+    this.restore({ x: this.startPos.x, y: this.startPos.y, segment: 0, waitLeft: 0 });
+  }
+
+  snapshot(): { x: number; y: number; segment: number; waitLeft: number } {
+    return { x: this.x, y: this.y, segment: this.segment, waitLeft: this.waitLeft };
+  }
+
+  restore(s: { x: number; y: number; segment: number; waitLeft: number }): void {
+    this.segment = s.segment; this.waitLeft = s.waitLeft; this.deltaX = this.deltaY = 0;
+    this.setPosition(s.x, s.y);
+    this.body.reset(s.x, s.y);
   }
 
   override update(dt: number): void {
