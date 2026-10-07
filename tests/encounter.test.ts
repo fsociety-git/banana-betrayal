@@ -21,7 +21,7 @@ class Gag extends Encounter {
   applied: string[] = [];
   outcome = 'none';
   build(): void {}
-  go(): void { this.setState('active'); this.after(500, () => { this.outcome = 'done'; this.setState('complete'); }); this.tween({}); }
+  go(): void { this.setState('active'); this.after(500, () => { this.outcome = 'done'; this.setState('complete'); }); this.tween({ targets: {} }); }
   protected applyState(state: 'idle' | 'complete'): void { this.applied.push(state); }
   protected override extraSnapshot(): Record<string, unknown> { return { outcome: this.outcome }; }
   protected override applyExtra(extra: Record<string, unknown>): void { if (typeof extra.outcome === 'string') this.outcome = extra.outcome; }
