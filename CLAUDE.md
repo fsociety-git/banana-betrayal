@@ -1,6 +1,6 @@
 # Banana Betrayal — project guide for Claude
 
-Comedy 2D platformer. "Two friends. One banana. Absolutely no trust."
+Comedy 2D platformer. "Makad & Dukkar: He Started It." Two cartoon rivals (Makad the monkey, Dukkar the pig) in an escalating banana dispute. Public brief: no relationship framing, no references to anyone outside the game.
 Stack: Phaser 4.2.1, TypeScript 7 (strict), Vite 8, Vitest 5. Static deploy (GitHub Pages, relative base).
 
 ## Commands
@@ -22,7 +22,9 @@ Stack: Phaser 4.2.1, TypeScript 7 (strict), Vite 8, Vitest 5. Static deploy (Git
 
 ## Layout
 - `src/main.ts` boot; `src/scenes/` Phaser scenes; `src/gameplay/` player, world, traps, objects, camera, fx, dialogue, boss, ghost
-- `src/core/` input, save, audio, settings, render helpers; `src/ui/` DOM overlays (menus, HUD, touch controls)
+- `src/core/` input, save, audio, settings, render helpers; `src/ui/` DOM overlays (menus, HUD, touch controls, reply chooser, achievement toast)
+- `src/gameplay/interact/` bonk timing/hit box and the contextual-action registry; `src/gameplay/encounters/` optional Dukkar gags (explicit idle → anticipation → active → payoff → complete, snapshot-safe); `src/gameplay/dialogue/` speech bubbles, `DialoguePolicy` (pure scheduling rules) and `ReactionDirector` (event-aware lines)
+- Encounter and dialogue rules: all player-facing text lives in `src/content/script.ts`; sequence NPC animation with callbacks/timers (never promises: the deterministic test harness steps synchronously); never gate progress or delay input on an NPC animation; bonus bananas start locked and release exactly once
 - `src/levels/` level data + parser + validator; `src/content/` editable text; `src/dev/` dev overlay
 - `public/assets/characters/` game-ready cutouts (generated from `concept/`); `art/cutouts/` full-res cutouts
 - `tests/` vitest unit tests; `PROGRESS.md` milestone log; `PLAN.md` implementation plan

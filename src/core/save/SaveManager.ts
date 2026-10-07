@@ -93,6 +93,18 @@ export class SaveManager {
   }
 
   markFirstRunDone(): void { this._data.progress.firstRunDone = true; this.commit(); }
+  markIntroSeen(): void { this._data.progress.introSeen = true; this.commit(); }
+
+  /** Unlock an achievement. Returns true only the first time (callers show the toast on true). */
+  unlockAchievement(id: string): boolean {
+    if (this._data.achievements[id]) return false;
+    this._data.achievements[id] = new Date().toISOString();
+    this.commit();
+    return true;
+  }
+  hasAchievement(id: string): boolean { return !!this._data.achievements[id]; }
+  setFlag(id: string): void { if (this._data.flags[id]) return; this._data.flags[id] = true; this.commit(); }
+  hasFlag(id: string): boolean { return !!this._data.flags[id]; }
 
   /** Store a record if it beats the current one; returns true when it did. */
   submitRecord(levelId: string, character: 'monkey' | 'pig', assist: boolean, record: LevelRecord): boolean {
@@ -121,6 +133,7 @@ export class SaveManager {
     const fresh = defaultSave();
     fresh.settings = this._data.settings;
     fresh.progress.firstRunDone = this._data.progress.firstRunDone;
+    fresh.progress.introSeen = this._data.progress.introSeen;
     this._data = fresh;
     this.flush();
   }

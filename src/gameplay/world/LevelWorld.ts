@@ -48,6 +48,8 @@ export interface WorldContext {
   onFlagFlee(fleeTo: { x: number; y: number }): void;
   /** The player notices a nearby trap arming (head perks up). */
   playerAlert(x: number): void;
+  /** Something heavy landed (falling objects): nearby NPCs flinch. */
+  onImpact?(x: number): void;
 }
 
 interface BlowSign { gfx: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone; blown: boolean; x: number; y: number; }
@@ -73,6 +75,8 @@ export class LevelWorld {
   bridges: CollapsingBridge[] = [];
   fleeing: FleeingBanana[] = [];
   pigs: PigNPC[] = [];
+  /** Signs placed with an id (so encounters/reactions can find and remove them). */
+  signs = new Map<string, { gfx: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; x: number; y: number; key: string }>();
   blowSigns: BlowSign[] = [];
   decor: Phaser.GameObjects.GameObject[] = [];
   zones: Phaser.GameObjects.Zone[] = [];
@@ -105,10 +109,15 @@ export class LevelWorld {
       }
       case 'sign': {
         if (o.blowAway) this.addBlowSign(foot.x, foot.y, SIGNS[o.text] ?? o.text, o.id ?? `sign-${o.x}-${o.y}`);
-        else this.decor.push(...this.addSign(foot.x, foot.y, SIGNS[o.text] ?? o.text));
+        else {
+          const parts = this.addSign(foot.x, foot.y, SIGNS[o.text] ?? o.text);
+          this.decor.push(...parts);
+          if (o.id) this.signs.set(o.id, { gfx: parts[0] as Phaser.GameObjects.Graphics, text: parts[1] as Phaser.GameObjects.Text, x: foot.x, y: foot.y, key: o.text });
+        }
         break;
       }
-      case 'pig': this.pigs.push(new PigNPC(scene, foot.x, foot.y, o.pose ?? 'idle', o.flip ?? false)); break;
+      case 'pig': this.pigs.push(new PigNPC(scene, foot.x, foot.y, o.pose ?? 'idle', o.flip ?? false, o.id)); break;
+      case 'encounter': break; // built by EncounterManager (needs the scene-level host)
       case 'dialogue-trigger': {
         const zone = this.zone(px + (o.w * TILE) / 2, py + (o.h * TILE) / 2, o.w * TILE, o.h * TILE);
         scene.physics.add.overlap(this.ctx.player.proxy, zone, () => this.ctx.say(o.line, o.once ?? true, o.speaker ?? 'pig'));
@@ -138,7 +147,7 @@ export class LevelWorld {
         const f = new Coconut(scene, id, o.x, o.y, o.triggerWidth ?? 3, groundY, kind);
         f.machine.timeScale = ts;
         f.onWarn = () => { this.ctx.sfx('warning', 0.8, 300); this.ctx.playerAlert(foot.x); };
-        f.onLand = (x, y) => { this.ctx.sfx(kind === 'anvil' ? 'slam' : 'impact', 0.9, 120); this.ctx.debris(x, y, 8); this.ctx.shake(0.004, 160); if (kind === 'coconut') this.ctx.say('l1-coconut-fell', true, 'pig'); };
+        f.onLand = (x, y) => { this.ctx.sfx(kind === 'anvil' ? 'slam' : 'impact', 0.9, 120); this.ctx.debris(x, y, 8); this.ctx.shake(0.004, 160); this.ctx.onImpact?.(x); if (kind === 'coconut') this.ctx.say('l1-coconut-fell', true, 'pig'); };
         this.fallers.push(f); this.ctx.snapshots.register(`faller-${id}`, f);
         break;
       }
@@ -209,7 +218,7 @@ export class LevelWorld {
         m.onReceipt = () => this.ctx.sfx('receipt', 1, 0);
         m.onUse = () => {
           const paid = this.ctx.spendBanana();
-          this.ctx.toast(paid ? 'Processing fee: one banana (−1 🍌)' : 'Processing fee: one banana (you had none — fee waived, pig displeased)', 3200);
+          this.ctx.toast(paid ? 'Processing fee: one banana (−1 🍌)' : 'Processing fee: one banana (you had none — fee waived, Dukkar displeased)', 3200);
           this.ctx.say('l3-machine', true, 'pig');
         };
         m.onDispense = (x, y) => { this.ctx.sfx('pop', 1, 0); this.spawnPeel(o.id, x + 48, y + 44); this.ctx.say('l3-fee', true, 'pig'); };
@@ -250,14 +259,18 @@ export class LevelWorld {
     this.peels.delete(machineId);
   }
 
-  private zone(cx: number, cy: number, w: number, h: number): Phaser.GameObjects.Zone {
+  zone(cx: number, cy: number, w: number, h: number): Phaser.GameObjects.Zone {
     const z = this.ctx.scene.add.zone(cx, cy, w, h);
     this.ctx.scene.physics.add.existing(z, true);
     this.zones.push(z);
     return z;
   }
 
-  private addSign(x: number, y: number, text: string): Phaser.GameObjects.GameObject[] {
+  pigById(id: string): PigNPC | undefined { return this.pigs.find((p) => p.id === id); }
+  snapshotsRegister(id: string, target: Resettable): void { this.ctx.snapshots.register(id, target); }
+
+  /** Public sign builder for encounters (returns [graphics, text]). */
+  addSign(x: number, y: number, text: string): Phaser.GameObjects.GameObject[] {
     const { scene, palette: p } = this.ctx;
     const t = scene.add.text(0, 0, text, { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '13px', color: '#2c1a0e', align: 'center', wordWrap: { width: 132 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(6);
     const bw = Math.max(110, t.width + 26), bh = t.height + 22;
@@ -393,6 +406,16 @@ export class LevelWorld {
 
   /** Bubbles are not snapshotted (they are transient); pop them on any respawn. */
   afterRestore(): void { for (const bs of this.bubbles) bs.reset(); }
+
+  /** Trap state machines the reaction director watches ("That usually works."). */
+  trapWatchers(): { id: string; state: () => string }[] {
+    const out: { id: string; state: () => string }[] = [];
+    for (const b of this.bridges) out.push({ id: b.id, state: () => b.machine.state });
+    for (const f of this.fallers) out.push({ id: f.id, state: () => f.machine.state });
+    for (const c of this.crumbles) out.push({ id: c.id, state: () => c.machine.state });
+    for (const s of this.sinking) out.push({ id: s.id, state: () => s.machine.state });
+    return out;
+  }
 
   devStates(): string {
     const parts: string[] = [];

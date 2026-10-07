@@ -15,6 +15,7 @@ export interface CardData {
   campaignComplete: boolean;
   assist: boolean;
   gameVersion: string;
+  comedyLine?: string;
 }
 
 /** Renders a shareable 1200x630 results card on an offscreen canvas and downloads it as PNG. Entirely local. */
@@ -49,9 +50,10 @@ export function downloadResultsCard(scene: Phaser.Scene, d: CardData): void {
     ctx.font = font(18, 800); ctx.fillStyle = '#5a4634'; ctx.fillText(label, x + 95, 350); ctx.textAlign = 'left';
   });
   ctx.font = font(22, 700); ctx.fillStyle = '#2a1d12';
-  const line = d.isNewBest ? '★ New personal best' : 'Played as the ' + d.character;
+  const line = d.isNewBest ? '★ New personal best' : 'Played as ' + (d.character === 'pig' ? NAMES.rival : NAMES.hero);
   ctx.fillText(line + (d.assist ? ' · assist mode' : ''), 100, 420);
-  ctx.font = font(18, 600); ctx.fillStyle = '#5a4634'; ctx.fillText(`${NAMES.subtitle}  ·  v${d.gameVersion}`, 100, 455);
+  if (d.comedyLine) { ctx.font = font(20, 600); ctx.fillStyle = '#2a1d12'; ctx.fillText(d.comedyLine, 100, 458); }
+  ctx.font = font(18, 600); ctx.fillStyle = '#5a4634'; ctx.fillText(`${NAMES.subtitle}  ·  v${d.gameVersion}`, 100, d.comedyLine ? 492 : 455);
   // character portrait
   const key = d.character === 'pig' ? 'pig-whole' : 'monkey-whole';
   const src = scene.textures.exists(key) ? (scene.textures.get(key).getSourceImage() as HTMLImageElement | HTMLCanvasElement) : null;

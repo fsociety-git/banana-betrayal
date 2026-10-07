@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
-export type InputAction = 'restart' | 'pause' | 'mute' | 'dev' | 'fullscreen' | 'menuBack' | 'jumpPressed';
+export type InputAction = 'restart' | 'pause' | 'mute' | 'dev' | 'fullscreen' | 'menuBack' | 'jumpPressed' | 'bonk' | 'interact';
 
-interface GamepadEdge { jump: boolean; pause: boolean; restart: boolean; }
+interface GamepadEdge { jump: boolean; pause: boolean; restart: boolean; bonk: boolean; interact: boolean; }
 
 /**
  * Unified, device-agnostic input. Keyboard (window), touch (DOM buttons via TouchControls) and gamepad
@@ -19,7 +19,7 @@ export class InputManager extends Phaser.Events.EventEmitter {
   private keys = new Set<string>();
   private touch = { left: false, right: false, jump: false };
   private pad = { left: false, right: false, jump: false };
-  private padPrev: GamepadEdge = { jump: false, pause: false, restart: false };
+  private padPrev: GamepadEdge = { jump: false, pause: false, restart: false, bonk: false, interact: false };
   private jumpPressedTime = -Infinity;
   private jumpHeldState = false;
   gameplayEnabled = true;
@@ -50,12 +50,14 @@ export class InputManager extends Phaser.Events.EventEmitter {
   consumeJump(): void { this.jumpPressedTime = -Infinity; }
 
   /** Called by touch controls. */
-  setTouch(action: 'left' | 'right' | 'jump', down: boolean): void {
+  setTouch(action: 'left' | 'right' | 'jump' | 'bonk' | 'interact', down: boolean): void {
     this.touchSeen = true;
     if (action === 'jump') {
       if (down && !this.touch.jump) this.pressJump();
       this.touch.jump = down;
       this.recomputeJumpHeld();
+    } else if (action === 'bonk' || action === 'interact') {
+      if (down && this.gameplayEnabled) this.emit(action);
     } else {
       this.touch[action] = down;
     }
@@ -64,23 +66,28 @@ export class InputManager extends Phaser.Events.EventEmitter {
   /** Poll gamepads once per frame (from the active gameplay scene). */
   pollGamepad(): void {
     const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
-    let left = false, right = false, jump = false, pause = false, restart = false;
+    // Standard mapping: A/B jump, X bonk, Y interact, Start pause, Back/Select restart
+    let left = false, right = false, jump = false, pause = false, restart = false, bonk = false, interact = false;
     for (const gp of pads) {
       if (!gp) continue;
       this.gamepadSeen = true;
       const ax = gp.axes[0] ?? 0;
       left ||= ax < -0.45 || !!gp.buttons[14]?.pressed;
       right ||= ax > 0.45 || !!gp.buttons[15]?.pressed;
-      jump ||= !!gp.buttons[0]?.pressed || !!gp.buttons[1]?.pressed || !!gp.buttons[2]?.pressed;
+      jump ||= !!gp.buttons[0]?.pressed || !!gp.buttons[1]?.pressed;
+      bonk ||= !!gp.buttons[2]?.pressed;
+      interact ||= !!gp.buttons[3]?.pressed;
       pause ||= !!gp.buttons[9]?.pressed;
-      restart ||= !!gp.buttons[3]?.pressed;
+      restart ||= !!gp.buttons[8]?.pressed;
     }
     this.pad.left = left; this.pad.right = right;
     if (jump && !this.padPrev.jump) this.pressJump();
     this.pad.jump = jump;
     if (pause && !this.padPrev.pause) this.emit('pause');
     if (restart && !this.padPrev.restart && this.gameplayEnabled) this.emit('restart');
-    this.padPrev = { jump, pause, restart };
+    if (bonk && !this.padPrev.bonk && this.gameplayEnabled) this.emit('bonk');
+    if (interact && !this.padPrev.interact && this.gameplayEnabled) this.emit('interact');
+    this.padPrev = { jump, pause, restart, bonk, interact };
     this.recomputeJumpHeld();
   }
 
@@ -108,13 +115,15 @@ export class InputManager extends Phaser.Events.EventEmitter {
     }
     if (!this.gameplayEnabled) return;
     if (inField) return;
-    const gameKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyR'].includes(e.code);
+    const gameKey = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyR', 'KeyJ', 'KeyX', 'KeyE', 'Enter'].includes(e.code);
     if (gameKey) e.preventDefault();
     if (e.repeat) return;
     if (!this.keys.has(e.code)) {
       this.keys.add(e.code);
       if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') this.pressJump();
       if (e.code === 'KeyR') this.emit('restart');
+      if (e.code === 'KeyJ' || e.code === 'KeyX') this.emit('bonk');
+      if (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'NumpadEnter') this.emit('interact');
       this.recomputeJumpHeld();
     }
   };

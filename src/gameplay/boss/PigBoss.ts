@@ -4,6 +4,7 @@ import { DEPTH } from '../../core/constants';
 import { CharacterRig } from '../player/CharacterRig';
 import type { Resettable } from '../world/SnapshotRegistry';
 import type { Speaker } from '../dialogue/DialogueManager';
+import type { Bonkable } from '../interact/Bonk';
 
 export type BossState = 'idle' | 'intro' | 'telegraph' | 'charge' | 'stunned' | 'lob' | 'recover' | 'defeated';
 
@@ -58,6 +59,11 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
   private invulnUntil = 0;
   private reducedMotion: boolean;
   private tilt = 0;
+  /** Bolt-on decorations (flag, spoiler, horn) that fall off in phase two. */
+  private decorPieces: Phaser.GameObjects.Graphics[] = [];
+  private decorDropped = false;
+  private light: Phaser.GameObjects.Graphics | null = null;
+  private lightTween: Phaser.Tweens.Tween | null = null;
   readonly width = 150;
   readonly height = 90;
 
@@ -72,6 +78,7 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.drawForklift();
     this.trophy = scene.add.image(0, 0, 'banana-gold').setScale(1);
     this.root.add(this.trophy);
+    this.buildDecor();
     this.rig = new CharacterRig(scene, this.startX, arena.floorY - 44, CHARACTERS.pig);
     this.rig.setDepth(DEPTH.npc + 1);
     this.rig.setScale(0.85);
@@ -119,6 +126,53 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     g.fillStyle(0xfff1a8, 1); g.fillCircle(-w / 2 + 2, -h + 34, 7);
   }
 
+  /** Phase-one swagger: a pennant, a rear spoiler and a comedy horn. Drawn in forklift-local space. */
+  private buildDecor(): void {
+    for (const d of this.decorPieces) d.destroy();
+    this.decorPieces = [];
+    const w = this.width, h = this.height;
+    const flag = this.scene.add.graphics();
+    flag.fillStyle(0x2c1a0e, 1); flag.fillRect(w / 2 - 50, -h - 86, 4, 70);
+    flag.fillStyle(0xe5484d, 1); flag.fillTriangle(w / 2 - 46, -h - 86, w / 2 - 8, -h - 74, w / 2 - 46, -h - 62);
+    flag.fillStyle(0xfff1a8, 1); flag.fillCircle(w / 2 - 36, -h - 74, 4);
+    const spoiler = this.scene.add.graphics();
+    spoiler.fillStyle(0x2c1a0e, 1); spoiler.fillRect(w / 2 - 30, -h - 18, 6, 18); spoiler.fillRect(w / 2 - 8, -h - 18, 6, 18);
+    spoiler.fillStyle(0xe5484d, 1); spoiler.fillRoundedRect(w / 2 - 38, -h - 26, 44, 9, 3);
+    const horn = this.scene.add.graphics();
+    horn.fillStyle(0xf7c948, 1); horn.fillTriangle(-w / 2 + 50, -h - 4, -w / 2 + 50, -h - 24, -w / 2 + 22, -h - 14);
+    horn.fillStyle(0x2c1a0e, 1); horn.fillCircle(-w / 2 + 50, -h - 14, 6);
+    this.decorPieces = [flag, spoiler, horn];
+    for (const d of this.decorPieces) this.root.add(d);
+    this.decorDropped = false;
+  }
+
+  /** Phase two: the decorations fall off. */
+  dropDecor(): void {
+    if (this.decorDropped) return;
+    this.decorDropped = true;
+    for (const [i, d] of this.decorPieces.entries()) {
+      this.root.remove(d);
+      this.scene.sys.displayList.add(d);
+      d.setPosition(this.root.x, this.root.y).setScale(this.root.scaleX, 1).setDepth(DEPTH.npc + 2);
+      if (this.reducedMotion) { d.destroy(); continue; }
+      this.scene.tweens.add({ targets: d, y: d.y + 40, x: d.x + (i - 1) * 60 * -this.facing, angle: (i - 1) * 140 + 80, alpha: 0, duration: 900 + i * 120, ease: 'Quad.easeIn', onComplete: () => d.destroy() });
+    }
+    this.decorPieces = [];
+  }
+
+  /** Phase three: a tiny rotating emergency light. "Okay. Serious now." */
+  emergencyLight(on: boolean): void {
+    if (!on) { this.lightTween?.stop(); this.lightTween = null; this.light?.destroy(); this.light = null; return; }
+    if (this.light) return;
+    const g = this.scene.add.graphics();
+    g.fillStyle(0x2c1a0e, 1); g.fillRect(-10, -this.height - 24, 20, 8);
+    g.fillStyle(0xe5484d, 1); g.fillRoundedRect(-8, -this.height - 42, 16, 20, 5);
+    g.fillStyle(0xffffff, 0.5); g.fillRect(-5, -this.height - 40, 4, 10);
+    this.root.add(g);
+    this.light = g;
+    if (!this.reducedMotion) this.lightTween = this.scene.tweens.add({ targets: g, alpha: 0.35, duration: 180, yoyo: true, repeat: -1 });
+  }
+
   private syncPositions(): void {
     const x = this.root.x, y = this.root.y;
     this.root.setScale(this.facing === -1 ? 1 : -1, 1);
@@ -140,6 +194,14 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     if (this.state !== 'idle') return;
     this.state = 'intro';
     this.timer = 1800;
+  }
+
+  /** The forklift as a bonk target: a clang while he is driving, a proper reaction once he is beaten. */
+  bonkable(): Bonkable {
+    return {
+      bonkBounds: () => ({ left: this.root.x - this.width / 2 - 70, right: this.root.x + this.width / 2 + 20, top: this.root.y - this.height - 60, bottom: this.root.y }),
+      onBonk: (fromX: number) => { this.events.emit(this.state === 'defeated' ? 'bonked' : 'clang', fromX); return true; },
+    };
   }
 
   get deadly(): boolean { return this.state === 'charge' || this.state === 'telegraph' || this.state === 'recover' || this.state === 'lob'; }
@@ -324,6 +386,8 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.exhaust?.stop(); this.smoke?.stop();
     this.scene.tweens.killTweensOf(this.trophy);
     this.trophy.setPosition(-this.width / 2 - 40, -this.height - 12).setAngle(0);
+    this.emergencyLight(false);
+    if (this.decorDropped) this.buildDecor();
     this.syncPositions();
   }
 
@@ -331,6 +395,7 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.events.removeAllListeners();
     for (const c of this.crates) { c.go.destroy(); c.shadow.destroy(); }
     this.exhaust?.destroy(); this.smoke?.destroy();
+    this.emergencyLight(false);
     this.alert.destroy(); this.stompZone.destroy(); this.rig.destroy(); this.root.destroy();
   }
 }

@@ -1,6 +1,6 @@
 import { GAME_VERSION, LEVEL_FORMAT_VERSION } from '../constants';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = 'banana-betrayal.save';
 
 export type ReducedMotionSetting = 'system' | 'on' | 'off';
@@ -55,6 +55,8 @@ export interface Progress {
   totalBananas: number;
   lastLevel: string | null;
   firstRunDone: boolean;
+  /** The new-game introduction has been shown (never repeats on restarts). */
+  introSeen: boolean;
 }
 
 export interface SaveData {
@@ -64,6 +66,10 @@ export interface SaveData {
   /** records[levelId][modeKey] */
   records: Record<string, Record<string, LevelRecord>>;
   ghosts: Record<string, GhostRecording>;
+  /** achievementId → ISO time unlocked. Persistent; never reset by checkpoints or deaths. */
+  achievements: Record<string, string>;
+  /** Story flags for cross-level callbacks (e.g. took the swamp shortcut). */
+  flags: Record<string, boolean>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -83,9 +89,11 @@ export function defaultSave(): SaveData {
   return {
     version: SAVE_VERSION,
     settings: structuredClone(DEFAULT_SETTINGS),
-    progress: { completed: {}, pigUnlocked: false, campaignComplete: false, totalDeaths: 0, totalBananas: 0, lastLevel: null, firstRunDone: false },
+    progress: { completed: {}, pigUnlocked: false, campaignComplete: false, totalDeaths: 0, totalBananas: 0, lastLevel: null, firstRunDone: false, introSeen: false },
     records: {},
     ghosts: {},
+    achievements: {},
+    flags: {},
   };
 }
 
@@ -171,6 +179,11 @@ export function migrateSave(raw: unknown): SaveData {
   }
   const ghosts: SaveData['ghosts'] = {};
   if (isObj(data.ghosts)) for (const [levelId, g] of Object.entries(data.ghosts)) { const clean = sanitizeGhost(g); if (clean) ghosts[levelId] = clean; }
+  // v1 → v2: achievements map and introSeen flag (absent in v1 saves)
+  const achievements: Record<string, string> = {};
+  if (isObj(data.achievements)) for (const [id, at] of Object.entries(data.achievements)) if (typeof at === 'string' && /^[a-z-]+$/.test(id)) achievements[id] = at;
+  const flags: Record<string, boolean> = {};
+  if (isObj(data.flags)) for (const [id, v] of Object.entries(data.flags)) if (v === true && /^[a-z0-9-]+$/.test(id)) flags[id] = true;
   return {
     version: SAVE_VERSION,
     settings: sanitizeSettings(data.settings),
@@ -182,9 +195,12 @@ export function migrateSave(raw: unknown): SaveData {
       totalBananas: num(progress.totalBananas, 0, 0),
       lastLevel: typeof progress.lastLevel === 'string' ? progress.lastLevel : null,
       firstRunDone: bool(progress.firstRunDone, false),
+      introSeen: bool(progress.introSeen, false),
     },
     records,
     ghosts,
+    achievements,
+    flags,
   };
 }
 

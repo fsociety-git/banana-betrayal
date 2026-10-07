@@ -53,7 +53,7 @@ export class Hud {
   /** Show the pig's remaining hits (null hides the bar). */
   setBoss(hp: number | null, max = 3): void {
     if (hp === null) { this.bossChip?.remove(); this.bossChip = null; return; }
-    if (!this.bossChip) { this.bossChip = el('span', 'bb-chip boss'); this.bossChip.setAttribute('aria-label', 'Pig health'); this.root.querySelector('.bb-stats')?.append(this.bossChip); }
+    if (!this.bossChip) { this.bossChip = el('span', 'bb-chip boss'); this.bossChip.setAttribute('aria-label', 'Dukkar health'); this.root.querySelector('.bb-stats')?.append(this.bossChip); }
     this.bossChip.replaceChildren(el('span', 'ico', '🐷'), el('span', '', '♥'.repeat(hp) + '♡'.repeat(Math.max(0, max - hp))));
     this.bossChip.classList.remove('pop'); void this.bossChip.offsetWidth; this.bossChip.classList.add('pop');
   }

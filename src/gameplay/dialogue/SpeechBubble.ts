@@ -20,7 +20,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
   }
 
   /** Show `text` with the tail tip at (x, y). Returns the display duration in ms. */
-  say(text: string, x: number, y: number, flip = false): number {
+  say(text: string, x: number, y: number, flip = false, holdMs?: number): number {
     this.hideTween?.stop();
     this.label.setText(text);
     const w = Math.max(90, this.label.width + 28), h = this.label.height + 22;
@@ -34,7 +34,7 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
     g.fillTriangle(flip ? 12 : -12, top + h - 1, flip ? -1 : 1, top + h - 1, 0, -2);
     this.setPosition(x, y).setVisible(true).setAlpha(0).setScale(0.6);
     this.scene.tweens.add({ targets: this, alpha: 1, scaleX: 1, scaleY: 1, duration: 160, ease: 'Back.easeOut' });
-    const ms = Phaser.Math.Clamp(1200 + text.length * 48, 1600, 4200);
+    const ms = holdMs ?? Phaser.Math.Clamp(1200 + text.length * 48, 1600, 4200);
     this.hideTween = this.scene.tweens.add({ targets: this, alpha: 0, delay: ms, duration: 220, onComplete: () => this.setVisible(false) });
     return ms;
   }

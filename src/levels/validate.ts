@@ -46,6 +46,15 @@ export function validateLevel(data: LevelData): ValidationIssue[] {
     if (o.type === 'wind' && o.force === 0) warn(`wind ${o.id ?? ''} has zero force`);
   }
   for (const [id, n] of ids) if (n > 1) err(`duplicate object id '${id}' (${n})`);
+  const pigIds = new Set(data.objects.filter((o) => o.type === 'pig').map((o) => (o as { id: string }).id));
+  const encounterIds = new Set<string>();
+  for (const o of data.objects) {
+    if (o.type !== 'encounter') continue;
+    if (encounterIds.has(o.id)) err(`duplicate encounter id '${o.id}'`);
+    encounterIds.add(o.id);
+    if (o.pig && !pigIds.has(o.pig)) err(`encounter ${o.id} references unknown pig '${o.pig}'`);
+    if (o.x < 0 || o.y < 0 || o.x >= cols || o.y >= rows) err(`encounter ${o.id} is out of bounds`);
+  }
   const gateIds = new Set(data.objects.filter((o) => o.type === 'gate').map((o) => (o as { id: string }).id));
   for (const o of data.objects) {
     if (o.type === 'switch') for (const t of o.targets) if (!gateIds.has(t)) err(`switch ${o.id} targets unknown gate '${t}'`);

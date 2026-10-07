@@ -131,30 +131,55 @@ export class TitleScene extends Phaser.Scene {
     return t;
   }
 
+  /** Where each creeping attempt stops; the third one is close enough to get properly caught. */
+  private stops(): number[] { return [this.pigTarget + 170, this.pigTarget + 70, this.pigTarget]; }
+  private attempt = 0;
+
   private sneak(): void {
-    // tiptoe closer in two cautious steps
+    // first cautious tiptoe from home
+    this.attempt = 0;
     this.pig.setFacing(-1); this.pig.setMood('alert');
     this.pigVx = -70;
-    this.tween({ targets: this.pig, x: this.pigTarget + 90, duration: 1700, ease: 'Sine.easeInOut', onComplete: () => {
-      this.pigVx = 0;
-      this.scheduleBeat(500, () => {
-        this.pigVx = -70;
-        this.tween({ targets: this.pig, x: this.pigTarget, duration: 1400, ease: 'Sine.easeInOut', onComplete: () => { this.pigVx = 0; this.scheduleBeat(250, () => this.notice()); } });
-      });
-    } });
+    this.tween({ targets: this.pig, x: this.stops()[0], duration: 1900, ease: 'Sine.easeInOut', onComplete: () => { this.pigVx = 0; this.scheduleBeat(250, () => this.notice()); } });
   }
 
   private notice(): void {
-    // monkey whips round with a "!"; pig freezes, then whistles
+    // Makad catches movement: whips round with a "!"; Dukkar freezes mid-step
     this.monkey.setFacing(1); this.monkey.setMood('alert'); this.monkey.impulse(0.86, 1.14, 110);
     this.showMark(this.monkeyMark, this.monkey.x + 30, this.groundY - 190, 700);
     this.pig.impulse(1.14, 0.86, 110);
+    const lastAttempt = this.attempt >= this.stops().length - 1;
     this.scheduleBeat(450, () => {
-      this.pig.setMood('smug');
-      this.pig.setFacing(1); // looks away, innocently
+      if (lastAttempt) { this.caught(); return; }
+      // pretends to inspect the scenery: turns away, shuffles a step, very interested in a leaf
+      this.pig.setMood('neutral');
+      this.pig.setFacing(1);
+      this.pigVx = 40;
+      this.tween({ targets: this.pig, x: this.pig.x + 26, duration: 520, ease: 'Sine.easeInOut', onComplete: () => { this.pigVx = 0; } });
       this.showMark(this.pigMark, this.pig.x + 34, this.groundY - 186, 1500);
-      this.scheduleBeat(1500, () => this.retreat());
+      this.scheduleBeat(1500, () => {
+        // Makad shrugs it off and looks away…
+        this.monkey.setMood('neutral'); this.monkey.setFacing(-1);
+        this.scheduleBeat(900, () => this.tryAgain());
+      });
     });
+  }
+
+  private tryAgain(): void {
+    // …and Dukkar immediately tries again, from where he stands, a little closer each time
+    this.attempt++;
+    const target = this.stops()[Math.min(this.attempt, this.stops().length - 1)];
+    this.pig.setFacing(-1); this.pig.setMood('alert');
+    this.pigVx = -70;
+    this.tween({ targets: this.pig, x: target, duration: Math.max(700, Math.abs(this.pig.x - target) * 12), ease: 'Sine.easeInOut', onComplete: () => { this.pigVx = 0; this.scheduleBeat(250, () => this.notice()); } });
+  }
+
+  private caught(): void {
+    // too close to pretend: whistles, then backs off all the way home and the whole thing starts over
+    this.pig.setMood('smug');
+    this.pig.setFacing(1);
+    this.showMark(this.pigMark, this.pig.x + 34, this.groundY - 186, 1500);
+    this.scheduleBeat(1500, () => this.retreat());
   }
 
   private retreat(): void {

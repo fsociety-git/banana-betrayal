@@ -3,6 +3,7 @@
   --bb-bg: #14231a;
   --bb-panel: #fff8e7;
   --bb-panel-ink: #2a1d12;
+  --bb-ink: #2a1d12;
   --bb-accent: #f7c948;
   --bb-accent-ink: #4a3000;
   --bb-pig: #f4a7b4;
@@ -229,3 +230,32 @@ html, body {
 @keyframes bb-rotate-phone { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
 @media (prefers-reduced-motion: reduce) { .bb-phone { animation: none; transform: rotate(-90deg); } }
 :root[data-reduced-motion="1"] .bb-phone { animation: none; transform: rotate(-90deg); }
+
+/* ---------- Bonk / talk touch cluster ---------- */
+.bb-touch .pad.right { align-items: flex-end; }
+.bb-touch .cluster { display: flex; flex-direction: column; gap: 0.5rem; align-items: center; pointer-events: none; }
+.bb-touch button.bonk { width: clamp(52px, 11vmin, 76px); height: clamp(52px, 11vmin, 76px); font-size: 0.8rem; letter-spacing: 0.04em; background: rgba(229, 72, 77, 0.45); border-color: rgba(229, 72, 77, 0.9); }
+.bb-touch button.bonk.pressed { background: rgba(229, 72, 77, 0.95); color: #fff; }
+.bb-touch button.talk { width: clamp(44px, 9vmin, 60px); height: clamp(44px, 9vmin, 60px); font-size: 1.3rem; opacity: 0.35; background: rgba(159, 227, 255, 0.35); border-color: rgba(159, 227, 255, 0.8); }
+.bb-touch button.talk.available { opacity: 0.95; background: rgba(159, 227, 255, 0.75); color: #14231a; transform: scale(1.06); }
+.bb-touch button.talk.pressed { background: #9fe3ff; }
+
+/* ---------- Reply chooser + achievement toast ---------- */
+.bb-replies { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 0.4rem; align-items: stretch; background: rgba(255, 248, 231, 0.97); color: #2a1d12; border: 3px solid #3a2a1c; border-radius: 14px; padding: 0.6rem 0.7rem; box-shadow: var(--bb-shadow); min-width: 16rem; max-width: min(92%, 26rem); animation: bb-caption 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.bb-replies-title { font-weight: 800; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.bb-replies-list { display: flex; flex-direction: column; gap: 0.35rem; }
+.bb-reply { font: inherit; font-weight: 700; text-align: left; padding: 0.45em 0.8em; border-radius: 10px; border: 2px solid #3a2a1c; background: #fff; color: #2a1d12; cursor: pointer; }
+.bb-reply.focus, .bb-reply:hover { background: var(--bb-accent); }
+:root[data-portrait-narrow="1"] .bb-replies { bottom: auto; top: calc(100% + 3rem); }
+.bb-achievement { position: absolute; left: 50%; top: calc(3.6rem + var(--safe-top)); transform: translateX(-50%); display: flex; gap: 0.6rem; align-items: center; background: rgba(20, 35, 26, 0.92); color: #fff8e7; border: 2px solid var(--bb-accent); border-radius: 14px; padding: 0.5em 0.9em; animation: bb-caption 320ms cubic-bezier(0.2, 1.4, 0.4, 1) both; max-width: 90vw; }
+.bb-achievement .ico { font-size: 1.4rem; }
+.bb-achievement .title { font-weight: 800; }
+.bb-achievement .desc { font-size: 0.85rem; opacity: 0.8; }
+
+/* ---------- opening skip + name card ---------- */
+.bb-skip { position: absolute; right: calc(0.8rem + var(--safe-right)); bottom: calc(0.8rem + var(--safe-bottom)); font: inherit; font-weight: 800; padding: 0.4em 0.9em; border-radius: 999px; border: 2px solid var(--bb-ink); background: rgba(255, 248, 231, 0.95); color: var(--bb-ink); cursor: pointer; }
+.bb-namecard { position: absolute; left: calc(0.9rem + var(--safe-left)); bottom: calc(1rem + var(--safe-bottom)); background: rgba(20, 35, 26, 0.92); color: #fff8e7; border-left: 6px solid var(--bb-accent); padding: 0.5em 0.9em; border-radius: 6px; animation: bb-caption 320ms cubic-bezier(0.2, 1.4, 0.4, 1) both; max-width: 70vw; pointer-events: none; }
+.bb-namecard-name { font-weight: 900; font-size: 1.1rem; letter-spacing: 0.04em; }
+.bb-namecard-role { font-size: 0.85rem; opacity: 0.9; }
+.bb-namecard-note { font-size: 0.75rem; opacity: 0.7; font-style: italic; }
+.bb-comedy { font-style: italic; }

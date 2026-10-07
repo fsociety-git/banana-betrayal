@@ -1,9 +1,10 @@
 # Banana Betrayal
 
-*Two friends. One banana. Absolutely no trust.*
+*Makad & Dukkar: He Started It.*
 
-A comedy 2D platformer for the browser. A monkey wants the legendary golden banana; a pig claims to know the way.
-Every helpful suggestion makes the journey worse. Built with Phaser 4, TypeScript and Vite; ships as a static site.
+A comedy 2D platformer for the browser. Makad the monkey wants the legendary golden banana; Dukkar the pig, self-appointed
+Chief of Mischief, claims to know the way. Every helpful suggestion makes the journey worse, and Makad gets steadily better at
+making Dukkar regret it. Built with Phaser 4, TypeScript and Vite; ships as a static site.
 
 ![Title screen](docs/screenshots/after/title.jpg)
 
@@ -12,7 +13,7 @@ Every helpful suggestion makes the journey worse. Built with Phaser 4, TypeScrip
 | ![Level 1: Trust Issues](docs/screenshots/after/level1-start.jpg) | ![Level 1: the totally safe bridge](docs/screenshots/after/level1-bridge.jpg) |
 | ![Level 2: Customer Support Swamp](docs/screenshots/after/level2.jpg) | ![Level 3: The Banana Economy](docs/screenshots/after/level3.jpg) |
 | ![Level 4: Cloud Storage](docs/screenshots/after/level4.jpg) | ![Level 5: The Oinkcident](docs/screenshots/after/level5.jpg) |
-| ![Level 5: the pig's banana forklift](docs/screenshots/level5-boss.jpg) | ![Results card](docs/screenshots/results.jpg) |
+| ![Level 5: Dukkar's banana forklift](docs/screenshots/level5-boss.jpg) | ![Results card](docs/screenshots/results.jpg) |
 
 Before/after captures of the art pass live in `docs/screenshots/before/` and `docs/screenshots/after/`.
 
@@ -35,8 +36,11 @@ npm run preview    # serve dist/ at http://localhost:4173
 | Action | Keyboard | Touch | Gamepad |
 |---|---|---|---|
 | Move | A / D or ← / → | left pad | left stick / d-pad |
-| Jump (hold for height) | Space, W or ↑ | JUMP | A / B / X |
-| Restart from checkpoint | R | pause menu | Y |
+| Jump (hold for height) | Space, W or ↑ | JUMP | A / B |
+| Bonk (short swing in front of Makad) | J or X | BONK | X |
+| Talk / contextual action (prompt appears above Makad) | E or Enter | ! | Y |
+| Pick a reply | 1 / 2 / 3, arrows + Enter | tap | – |
+| Restart from checkpoint | R | pause menu | Select |
 | Pause | Esc | ❚❚ button | Start |
 | Mute | M | settings | – |
 | Dev overlay | ` or F3 (dev builds) | – | – |
@@ -49,10 +53,32 @@ Touch controls appear automatically on coarse-pointer devices and can be forced 
 2. **Customer Support Swamp** — sinking platforms, bubbles, mechanical crocodiles and a help desk.
 3. **The Banana Economy** — conveyors, crushers, cargo, switches and a FREE BANANA machine (fees apply).
 4. **Cloud Storage** — wind, crumbling clouds, falling anvils and a cloud that doubts itself.
-5. **The Oinkcident** — everything at once, then the pig and his banana forklift.
+5. **The Oinkcident** — everything at once, then Dukkar and his banana forklift.
 
-Finishing the campaign unlocks the pig as a playable character. Every level can be replayed from the Levels menu
+Finishing the campaign unlocks Dukkar as a playable character. Every level can be replayed from the Levels menu
 with a timer, personal bests and a ghost of your best run.
+
+### Dukkar encounters (all optional)
+
+Every level has a few staged gags with Dukkar. None of them is required to finish a level; most hand out a bonus
+banana, some unlock a local achievement.
+
+| Level | Where | What happens |
+|---|---|---|
+| 1 | Start (Dukkar at the welcome sign) | He is holding your banana. Bonk it loose, shout **DUKKAR!**, or Talk and pick a reply (explain / do it yourself / silent stare). |
+| 1 | The three-tile pit | "It's literally one jump." Ask him to **Show me** and he demonstrates, badly; the correct arc is shown afterwards. |
+| 1 | Past the coconut palm | The red button. Walk past it (achievement *Unbothered*) or press it yourself (confetti, GOTCHA). |
+| 2 | Help desk | **Complain** at the Prank Complaint Department: printer, REFUND stamp, banana on his head. |
+| 2 | The croc route | Dukkar's "shortcut": queue sign, tiny puddle, ladders to nowhere, "Time saved: questionable." Taking it earns a callback in level 4. |
+| 2 | Escalations desk, Apology Kit | Same pig, taller box; an Official Apology Kit with a distant, unrelated explosion. |
+| 3 | Supplies crate after checkpoint 1 | "Emergency supplies. Do not overthink it." |
+| 3 | Before the FREE BANANA machine | He steals a bonus banana and runs; bonk it loose, or ignore him and he brings it back. |
+| 4 | Start, checkpoint 1, mid island, end | "I know a—" callback; a tiny umbrella over the checkpoint; pull him out of his own net; another banana in hand. |
+| 5 | Vault corridor | The coconut machine. Flip the direction sign before walking under the rail (achievement *Reverse Engineering*). |
+| 5 | Boss | Phase lines, bolt-ons falling off, emergency light; after the fight: one safe bonk, the banner corrects itself, a handmade trophy and a choice of high-five / bonk / both. |
+
+Seven achievements are stored locally in the save (`achievements` in save v2): Unbothered, Demonstration Required,
+Complaint Escalated, Reverse Engineering, Banana Recovered, Dukkar Had It Coming, Brief Truce.
 
 ## Architecture
 
@@ -64,7 +90,7 @@ src/
     player/               Player (physics + state machine) and CharacterRig (visual head/body layers)
     world/                Terrain baking, Backdrop parallax, Water, Decor, LevelWorld (object factory), SnapshotRegistry
     traps/                TrapStateMachine + every trap type (bridge, coconut, sinking, croc, crusher, clouds, machine…)
-    objects/              Platforms, conveyor, bubbles, switches/gates, wind, hazards, checkpoints, flag, pig NPC
+    objects/              Platforms, conveyor, bubbles, switches/gates, wind, hazards, checkpoints, flag, Dukkar NPC
     boss/                 PigBoss (three-phase forklift fight)
     ghost/                Ghost recorder/player (visual-only best-run replay)
     dialogue/             Speech bubbles and the rate-limited DialogueManager
@@ -72,7 +98,7 @@ src/
   core/                   input (keyboard/touch/gamepad), save (versioned schema + migrations), settings, audio (procedural), render scale
   ui/                     DOM overlays: HUD, pause, settings, results, level select, title menu, touch controls, captions
   levels/                 Level data (builder DSL), parser, validator, hash
-  content/                ALL words: names, captions, pig lines, signs, credits  ← edit jokes here
+  content/                ALL words: names, captions, Dukkar's lines, signs, credits  ← edit jokes here
   results/                Results card renderer (PNG download)
   dev/                    Dev overlay and browser test hooks
 tests/                    Vitest unit tests
@@ -86,7 +112,7 @@ and restore exactly; all text is in `src/content/script.ts`.
 
 ## Editing
 
-- **Jokes, names, captions:** `src/content/script.ts`. Captions are grouped by death cause; pig lines by key.
+- **Jokes, names, captions:** `src/content/script.ts`. Captions are grouped by death cause; Dukkar's lines by key.
 - **Levels:** `src/levels/level1.ts` … `level5.ts` use `LevelBuilder` for terrain plus an object list. Run
   `npm test` — `validate.test.ts` checks every level for ragged rows, missing spawns/flags, out-of-bounds objects,
   duplicate ids and dangling switch targets.
@@ -96,8 +122,8 @@ and restore exactly; all text is in `src/content/script.ts`.
 
 ## Asset provenance
 
-- Character portraits: generated with Higgsfield (GPT Image) from the players' own photos, cut out and split with a
-  small Python script (see `PROGRESS.md`). Only the game-ready cutouts ship; no source photographs are included.
+- Character portraits: original generated illustrations in a photo-cutout style, cut out and split into head/body/tail
+  layers with a small Python script (see `PROGRESS.md`). Only the game-ready cutouts ship.
 - Everything else — terrain, backgrounds, props, UI, music and sound effects — is generated procedurally in code.
   No third-party art or audio files are used.
 - Fonts: system font stack (no external requests).
@@ -112,6 +138,8 @@ A viewport harness for exact-size layout checks lives at `/dev/frame.html?size=3
 - Characters are single illustrations animated procedurally (squash, bob, tilt, shadow); there is no drawn walk cycle.
 - The ghost is a sampled visual replay of positions, not a deterministic physics re-simulation.
 - Audio is procedural WebAudio; it starts after the first click/tap as browsers require.
+- Dukkar's "useful step" after repeated failures is a pointer and a hint line, not a spawned platform; assist mode's extra checkpoints remain the physical help.
+- Adding encounters changed the layout hash of every level, so ghosts recorded with older builds are discarded on first load.
 
 ## Testing
 
@@ -148,7 +176,7 @@ Ready-to-use Higgsfield prompts with pose, angle, framing, background and consis
 The game is complete with the two supplied portraits. Extra poses would materially improve the feel; each should
 be the same character on a transparent background at roughly the same scale:
 
-- Monkey: jump (arms up), fall/flail, hurt (eyes shut, limbs splayed), victory (trophy raised).
-- Pig: driving pose (seated, hooves on a wheel), laughing, stunned (stars), defeated/sulking.
+- Makad: jump (arms up), fall/flail, hurt (eyes shut, limbs splayed), victory (trophy raised).
+- Dukkar: driving pose (seated, hooves on a wheel), laughing, stunned (stars), defeated/sulking.
 
 Drop them into `public/assets/characters/` and wire the keys in `src/content/characters.ts`.

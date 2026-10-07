@@ -3,6 +3,7 @@ import { CHARACTERS, type CharacterDef } from '../../content/characters';
 import { PLAYER_TUNING as T } from '../../core/constants';
 import { InputManager } from '../../core/input/InputManager';
 import { CharacterRig } from './CharacterRig';
+import { BonkController, bonkHitBox, type Bounds } from '../interact/Bonk';
 
 export type PlayerState = 'grounded' | 'rising' | 'falling' | 'hurt' | 'dead' | 'respawning';
 
@@ -48,6 +49,7 @@ export class Player {
   private spawnPoint = { x: 0, y: 0 };
   private groundProbe = { y: null as number | null };
   controlsEnabled = true;
+  readonly bonk = new BonkController(450, 120);
   /** Horizontal push applied this frame by the world (wind zones). Reset every update. */
   externalVx = 0;
   private lastExternalVx = 0;
@@ -91,6 +93,7 @@ export class Player {
     this.ride = null;
     this.stickyRide = null;
     this.externalVx = 0; this.lastExternalVx = 0; this.crushed = false;
+    this.bonk.reset();
   }
 
   update(dt: number): void {
@@ -200,6 +203,21 @@ export class Player {
     this.rig.setFacing(this.facing);
     const alive = this.alive;
     this.rig.animate(dt, alive ? this.body.velocity.x : 0, alive ? this.body.velocity.y : 0, alive && this.grounded, alive ? this.groundProbe.y : null);
+  }
+
+  /**
+   * Cartoon bonk: a short swing in the facing direction. Returns the hit box when a bonk starts, null when on
+   * cooldown or not allowed. Movement and jumping are untouched.
+   */
+  tryBonk(): Bounds | null {
+    if (!this.alive || !this.controlsEnabled) return null;
+    if (!this.bonk.trigger(this.scene.time.now)) return null;
+    if (!this.rig.reducedMotion) {
+      this.rig.impulse(1.14, 0.9, 70);
+      this.rig.setMood('alert', 260);
+    }
+    this.events.emit('bonked');
+    return bonkHitBox(this.x, this.feetY, this.facing, this.def.bodyHeight);
   }
 
   /** Kill the player once; repeated calls during the same death are ignored. Returns false if already dead. */

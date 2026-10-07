@@ -8,13 +8,13 @@ cut-out script (`scratchpad/cutout.py` logic lives in PROGRESS.md) and drop the 
 
 ## Consistency requirements (paste into every prompt)
 
-> Same character as the reference image: identical photo-realistic head, hairstyle, skin tone and proportions on
+> Same character as the reference image: identical photo-cutout style head, hairstyle and proportions on
 > the same cartoon body with the same warm brown fur / pink skin, bold black outlines, flat cel shading and tiny
 > red sneakers (monkey) or small dark hooves (pig). Full body, side view facing right, face turned slightly toward
 > the viewer. Centered on a plain solid pure white background. No text, props, scenery, ground shadow or extra
 > characters. Same rendering scale as the reference: the head is about 45% of total height.
 
-## Monkey (hero)
+## Makad (the monkey, hero)
 
 | Pose key | Prompt addition | Used for |
 |---|---|---|
@@ -23,7 +23,7 @@ cut-out script (`scratchpad/cutout.py` logic lives in PROGRESS.md) and drop the 
 | `monkey-hurt` | "…hurt pose: eyes squeezed shut, limbs splayed like a starfish, tail drooping, small sweat drops." | death pop |
 | `monkey-victory` | "…victory pose: standing proud, one arm raised holding nothing, chest out, big grin, tail curled high." | results, flag |
 
-## Pig (rival, boss, unlockable)
+## Dukkar (the pig: rival, boss, unlockable)
 
 | Pose key | Prompt addition | Used for |
 |---|---|---|

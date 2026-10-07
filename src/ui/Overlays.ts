@@ -1,4 +1,4 @@
-import { CREDITS, FIRST_RUN } from '../content/script';
+import { CREDITS, FIRST_RUN, NAMES } from '../content/script';
 import { InputManager } from '../core/input/InputManager';
 import { button, el, trapFocus, UIRoot } from './UIRoot';
 
@@ -52,7 +52,7 @@ export function showFirstRun(dialog: SimpleDialog, onDone: () => void): void {
 export function showCharacterPicker(dialog: SimpleDialog, base: string, onPick: (c: 'monkey' | 'pig') => void, onClose: () => void): void {
   dialog.open((panel, close) => {
     panel.append(el('h2', '', 'Who is playing?'));
-    panel.append(el('p', 'bb-muted', 'The pig unlocked himself. He says it was always the plan.'));
+    panel.append(el('p', 'bb-muted', 'Dukkar unlocked himself. He says it was always the plan.'));
     const row = el('div', 'bb-row');
     row.style.justifyContent = 'center';
     for (const c of ['monkey', 'pig'] as const) {
@@ -61,9 +61,9 @@ export function showCharacterPicker(dialog: SimpleDialog, base: string, onPick: 
       card.style.alignItems = 'center';
       const img = el('img');
       img.src = `${base}assets/characters/${c}.png`;
-      img.alt = c === 'monkey' ? 'The monkey' : 'The pig';
+      img.alt = c === 'monkey' ? NAMES.hero : NAMES.rival;
       img.style.height = '140px';
-      card.append(img, el('div', 'name', c === 'monkey' ? 'Monkey' : 'Pig'));
+      card.append(img, el('div', 'name', c === 'monkey' ? NAMES.hero : NAMES.rival));
       card.addEventListener('click', () => { dialog.hide(); onPick(c); });
       row.append(card);
     }

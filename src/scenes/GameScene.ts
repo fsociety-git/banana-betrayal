@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CAPTIONS, ENDING, LEVEL_INTROS, PIG_LINES, type DeathCause } from '../content/script';
+import { CAPTIONS, ENDING, INTRO, LEVEL_INTROS, DUKKAR_LINES, RESULTS_LINES, type DeathCause } from '../content/script';
 import { AudioEngine } from '../core/audio/AudioEngine';
 import { DEPTH, GAME_VERSION, PLAYER_TUNING, TILE } from '../core/constants';
 import { devFlags } from '../core/devFlags';
@@ -14,6 +14,15 @@ import { PigBoss } from '../gameplay/boss/PigBoss';
 import { CameraController } from '../gameplay/camera/CameraController';
 import { GhostPlayer, GhostRecorder } from '../gameplay/ghost/Ghost';
 import { DialogueManager } from '../gameplay/dialogue/DialogueManager';
+import type { SayOptions } from '../gameplay/dialogue/DialoguePolicy';
+import { MakadVoice } from '../gameplay/dialogue/MakadVoice';
+import { ReactionDirector } from '../gameplay/dialogue/ReactionDirector';
+import { EncounterManager } from '../gameplay/encounters/EncounterManager';
+import type { EncounterHost } from '../gameplay/encounters/Encounter';
+import { overlaps, type Bonkable } from '../gameplay/interact/Bonk';
+import { InteractionManager } from '../gameplay/interact/InteractionManager';
+import { PigNPC, type PigPose } from '../gameplay/objects/PigNPC';
+import { drawBanner, drawTrophy } from '../gameplay/encounters/props';
 import { SpeechBubble } from '../gameplay/dialogue/SpeechBubble';
 import { Banana } from '../gameplay/objects/Banana';
 import { CheckpointPost } from '../gameplay/objects/CheckpointPost';
@@ -31,7 +40,10 @@ import { levelHash } from '../levels/hash';
 import { parseLevel } from '../levels/parse';
 import type { LevelData, ParsedLevel } from '../levels/types';
 import { validateLevel } from '../levels/validate';
+import { AchievementToast } from '../ui/AchievementToast';
 import { CaptionLayer } from '../ui/CaptionLayer';
+import { ReplyChooser } from '../ui/ReplyChooser';
+import { el } from '../ui/UIRoot';
 import { Hud } from '../ui/Hud';
 import { LevelIntro } from '../ui/LevelIntro';
 import { PauseMenu } from '../ui/PauseMenu';
@@ -91,6 +103,22 @@ export class GameScene extends Phaser.Scene {
   private snapshots = new SnapshotRegistry();
   private dialogue!: DialogueManager;
   private bubble!: SpeechBubble;
+  private makad!: MakadVoice;
+  private interactions = new InteractionManager();
+  private replies = new ReplyChooser();
+  private encounters!: EncounterManager;
+  private director!: ReactionDirector;
+  private bonusHooks = new Map<Banana, () => void>();
+  private achievementsThisRun = 0;
+  private calloutBusyUntil = 0;
+  private calloutCount = 0;
+  private introTimers: Phaser.Time.TimerEvent[] = [];
+  private introNode: HTMLElement | null = null;
+  private introKey: ((e: KeyboardEvent) => void) | null = null;
+  private banner: ReturnType<typeof drawBanner> | null = null;
+  private footnote: Phaser.GameObjects.Text | null = null;
+  private finalBonkDone = false;
+  private handoverStarted = false;
   private hud!: Hud;
   private captions!: CaptionLayer;
   private pauseMenu!: PauseMenu;
@@ -145,6 +173,10 @@ export class GameScene extends Phaser.Scene {
     this.cameraCtl.snapTo(this.player.x, this.player.feetY, 1);
     this.bubble = new SpeechBubble(this);
     this.dialogue = new DialogueManager(this.bubble);
+    this.makad = new MakadVoice(this, this.player);
+    this.interactions = new InteractionManager();
+    this.interactions.onChange = (a) => { this.makad.setPrompt(a ? a.label : null, InputManager.instance.touchSeen ? '' : 'E'); TouchControls.instance.setTalkAvailable(!!a); };
+    this.achievementsThisRun = 0; this.calloutBusyUntil = 0; this.calloutCount = 0; this.bonusHooks.clear();
     this.buildParticles();
 
     // grid entities
@@ -173,9 +205,26 @@ export class GameScene extends Phaser.Scene {
       groundBelow: (x, y) => this.groundBelow(x, y),
       onFlagFlee: (to) => this.fleeFlag(to),
       playerAlert: (x) => { if (Math.abs(x - this.player.x) < 420 && this.player.alive) this.player.rig.setMood('alert', 700); },
+      onImpact: (x) => this.director?.onImpactNear(x),
     };
     this.world = new LevelWorld(ctx);
     this.world.build(data.objects);
+    // optional comedy encounters (own their pigs, props and locked bonus bananas)
+    this.encounters = new EncounterManager(this.encounterHost());
+    this.encounters.build(data.objects);
+    this.director = new ReactionDirector({
+      scene: this, player: this.player, pigs: this.world.pigs, policy: this.dialogue.policy, reducedMotion: this.settings.reducedMotion,
+      say: (pig, key, opts) => this.pigSay(pig, key, opts),
+      sfx: (name, i, gap) => this.audio.play(name, i, gap),
+      sparkle: (x, y, n) => this.sparkles?.emitParticleAt(x, y, n),
+      traps: this.world.trapWatchers(), signs: this.world.signs,
+      hardBanana: data.hardBanana ? { x: data.hardBanana.x * TILE + TILE / 2, y: data.hardBanana.y * TILE + TILE / 2 } : null,
+    });
+    this.interactions.register({
+      id: 'callout', label: 'DUKKAR!', priority: 1,
+      available: () => { if (!this.player.alive || !this.player.grounded || this.time.now < this.calloutBusyUntil) return false; const pig = this.nearestPig(320); return !!pig && (!!pig.calloutHandler || !this.encounters.pigBusy(pig)); },
+      run: () => this.callout(),
+    });
     for (const fb of this.world.fleeing) this.bananas.push(fb.banana);
     for (const [i, b] of this.bananas.entries()) if (!this.world.fleeing.some((f) => f.banana === b)) this.snapshots.register(`banana-${i}`, b);
     this.wirePhysics();
@@ -216,7 +265,10 @@ export class GameScene extends Phaser.Scene {
     const onSettings = (): void => { this.cameraCtl.shakeEnabled = this.settings.screenShake; this.player.setReducedMotion(this.settings.reducedMotion); this.hud.setTimerVisible(this.sceneData.mode === 'replay' || this.settings.settings.showTimer); };
     const onRotateShown = (): void => { if (!this.finished && !this.pauseMenu.open && !this.results.open && this.scene.isActive()) { this.scene.pause(); InputManager.instance.gameplayEnabled = false; InputManager.instance.releaseAll(); this.rotatePaused = true; } };
     const onRotateHidden = (): void => { if (this.rotatePaused) { this.rotatePaused = false; if (this.scene.isPaused()) this.scene.resume(); InputManager.instance.gameplayEnabled = true; } };
+    const onBonk = (): void => { if (!this.pauseMenu.open && !this.results.open && !this.replies.open) this.doBonk(); };
+    const onInteract = (): void => { if (!this.pauseMenu.open && !this.results.open && !this.replies.open && this.player.alive) this.interactions.onInteract(this.time.now); };
     input.on('restart', onRestart); input.on('pause', onPause); input.on('menuBack', onBack); input.on('mute', onMute);
+    input.on('bonk', onBonk); input.on('interact', onInteract);
     window.addEventListener('blur', onBlur);
     bus.on(Events.RenderScaleChanged, onScale);
     bus.on(Events.SettingsChanged, onSettings);
@@ -226,6 +278,7 @@ export class GameScene extends Phaser.Scene {
     if (RotatePrompt.instance.open) this.time.delayedCall(0, onRotateShown);
     this.cleanups.push(() => {
       input.off('restart', onRestart); input.off('pause', onPause); input.off('menuBack', onBack); input.off('mute', onMute);
+      input.off('bonk', onBonk); input.off('interact', onInteract);
       window.removeEventListener('blur', onBlur);
       bus.off(Events.RenderScaleChanged, onScale); bus.off(Events.SettingsChanged, onSettings);
       bus.off(Events.RotatePromptShown, onRotateShown); bus.off(Events.RotatePromptHidden, onRotateHidden);
@@ -251,6 +304,7 @@ export class GameScene extends Phaser.Scene {
     ]);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanup());
     bus.emit(Events.LevelStarted, data.id);
+    if (data.id === 'level1' && this.sceneData.mode === 'campaign' && this.sceneData.character === 'monkey' && !SaveManager.instance.data.progress.introSeen && !devFlags.startLevel) this.playIntro();
   }
 
   private buildParticles(): void {
@@ -315,6 +369,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.player.alive || !b.collect()) return;
     this.audio.play('collect', 1, 50);
     this.collectFx(b.x, b.y);
+    this.bonusHooks.get(b)?.();
+    this.director.onBananaCollected(b.x, b.y);
     this.hud.setBananas(this.collectedCount(), this.bananas.length);
     bus.emit(Events.BananaCollected, this.collectedCount());
   }
@@ -341,6 +397,7 @@ export class GameScene extends Phaser.Scene {
     this.confetti(c.footX, c.footY - 90, 20);
     this.ringPuff(c.footX, c.footY - 60, 1.2, 0xf7c948);
     this.hud.flashCheckpoint(this.levelData.id === 'level2' ? 'Receipt printed' : 'Checkpoint');
+    this.director.onCheckpoint(c.footX);
     bus.emit(Events.CheckpointReached, c.id);
   }
 
@@ -348,7 +405,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.player.alive) return;
     const pigs = this.world.pigs;
     if (speaker === 'caption' || pigs.length === 0) {
-      const line = PIG_LINES[key];
+      const line = DUKKAR_LINES[key];
       const text = Array.isArray(line) ? line[0] : line;
       if (text && this.dialogue.say(key, { once })) this.captions.show(text, 2200);
       return;
@@ -358,6 +415,188 @@ export class GameScene extends Phaser.Scene {
     best.lookAt(this.player.x);
     this.dialogue.setSpeaker(best);
     if (this.dialogue.say(key, { once })) this.audio.play('oink', 0.7, 400);
+  }
+
+  // ------------------------------------------------------------------ bonk, callout, encounters
+  private nearestPig(maxDist: number): PigNPC | null {
+    let best: PigNPC | null = null, bestD = maxDist;
+    for (const pig of this.world.pigs) { if (pig.isHidden) continue; const d = Math.abs(pig.footX - this.player.x); if (d < bestD) { bestD = d; best = pig; } }
+    return best;
+  }
+
+  private pigSay(pig: PigNPC, key: string, opts?: SayOptions): boolean {
+    if (!this.player.alive && !opts?.force) return false;
+    this.dialogue.setSpeaker(pig);
+    const ok = this.dialogue.say(key, opts);
+    if (ok) this.audio.play('oink', 0.7, 400);
+    return ok;
+  }
+
+  /** Everything a bonk can connect with, in priority order. */
+  private bonkTargets(): Bonkable[] {
+    const list: Bonkable[] = [...this.world.pigs];
+    if (this.boss) list.push(this.boss.bonkable());
+    return list;
+  }
+
+  private doBonk(): void {
+    const box = this.player.tryBonk();
+    if (!box) return;
+    const fromX = this.player.x;
+    let hit: Bonkable | null = null;
+    for (const b of this.bonkTargets()) {
+      const bb = b.bonkBounds();
+      if (!bb || !overlaps(box, bb)) continue;
+      if (b instanceof PigNPC) {
+        const handled = b.bonkHandler?.(fromX) ?? false;
+        if (!handled) { b.recoil(fromX); this.pigSay(b, 'bonk-react', { priority: true }); }
+      } else if (!b.onBonk(fromX)) continue;
+      hit = b;
+      this.bonkBurst((bb.left + bb.right) / 2, bb.top + (bb.bottom - bb.top) * 0.35);
+      break;
+    }
+    if (hit) { this.audio.play('bonk', 1, 0); this.audio.play('squeak', 0.9, 0); this.cameraCtl.shake(0.0025, 90); }
+    else { this.audio.play('whiff', 1, 0); if (!this.settings.reducedMotion) this.swipe(box.left + (box.right - box.left) / 2, box.top + (box.bottom - box.top) / 2); }
+  }
+
+  /** Comic impact: a star burst and the word, not a bruise. */
+  private bonkBurst(x: number, y: number): void {
+    const t = this.add.text(x, y - 20, 'BONK!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '26px', color: '#fff1a8', stroke: '#2a1d12', strokeThickness: 6, fontStyle: 'bold' }).setOrigin(0.5).setDepth(DEPTH.particles + 1).setAngle(-8);
+    if (this.settings.reducedMotion) { this.time.delayedCall(420, () => t.destroy()); return; }
+    const spark = this.add.image(x, y, 'spark').setScale(0.9).setTint(0xfff1a8).setDepth(DEPTH.particles);
+    t.setScale(0.3);
+    this.tweens.add({ targets: t, scaleX: 1, scaleY: 1, duration: 120, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: t, y: y - 60, alpha: 0, delay: 260, duration: 320, onComplete: () => t.destroy() });
+    this.tweens.add({ targets: spark, scaleX: 2.2, scaleY: 2.2, alpha: 0, angle: 60, duration: 240, onComplete: () => spark.destroy() });
+    this.debris?.emitParticleAt(x, y, 5);
+  }
+
+  private swipe(x: number, y: number): void {
+    const g = this.add.graphics().setDepth(DEPTH.particles);
+    g.lineStyle(4, 0xffffff, 0.7); g.beginPath(); g.arc(x, y, 26, -1.2 * this.player.facing, 1.2 * this.player.facing, this.player.facing === -1); g.strokePath();
+    this.tweens.add({ targets: g, alpha: 0, duration: 160, onComplete: () => g.destroy() });
+  }
+
+  /** "DUKKAR!" — the shout is Makad's; the reaction depends on what the nearest pig is up to. */
+  private callout(): void {
+    const pig = this.nearestPig(320);
+    if (!pig) return;
+    this.calloutBusyUntil = this.time.now + 5500;
+    this.makad.say('callout');
+    this.audio.play('callout', 1, 0);
+    if (!this.settings.reducedMotion) this.player.rig.impulse(0.92, 1.12, 120);
+    this.time.delayedCall(380, () => {
+      if (!this.player.alive || pig.isHidden) return;
+      if (pig.calloutHandler?.()) return;
+      if (this.encounters.pigBusy(pig)) return; // mid-gag: the shout alone is the joke
+      pig.lookAt(this.player.x);
+      const variant = this.calloutCount++ % 2;
+      if (variant === 0) {
+        pig.rig.setMood('alert', 1600);
+        if (!this.settings.reducedMotion) pig.rig.impulse(1.14, 0.86, 110);
+        this.pigSay(pig, 'callout-freeze', { priority: true });
+      } else {
+        pig.showPlant(true);
+        pig.rig.setMood('alert', 2200);
+        this.pigSay(pig, 'callout-plant', { priority: true });
+        this.time.delayedCall(2300, () => pig.showPlant(false));
+      }
+    });
+  }
+
+  private unlockAchievement(id: string): void {
+    if (!SaveManager.instance.unlockAchievement(id)) return;
+    this.achievementsThisRun++;
+    AchievementToast.show(id);
+    this.audio.play('sparkle', 1, 0);
+  }
+
+  private comedyLine(timeMs: number, bananas: number): string {
+    const par = this.levelData.parTimeMs;
+    const when = this.deaths === 0 ? 'deathless'
+      : bananas >= this.bananas.length && this.bananas.length > 0 ? 'allBananas'
+      : par && timeMs < par * 0.75 ? 'fast'
+      : this.deaths >= 8 ? 'manyDeaths'
+      : this.achievementsThisRun > 0 ? 'achievement' : 'default';
+    return RESULTS_LINES.find((r) => r.when === when)?.text ?? RESULTS_LINES[RESULTS_LINES.length - 1].text;
+  }
+
+  private encounterHost(): EncounterHost {
+    return {
+      scene: this, player: this.player, world: this.world, reducedMotion: this.settings.reducedMotion,
+      say: (pig, key, opts) => this.pigSay(pig, key, opts),
+      makad: (k) => { this.makad.say(k); },
+      caption: (text, ms) => this.captions.show(text, ms),
+      sfx: (name, i, gap) => this.audio.play(name, i, gap),
+      shake: (i, ms) => this.cameraCtl.shake(i, ms),
+      debris: (x, y, n) => this.debris?.emitParticleAt(x, y, n),
+      sparkle: (x, y, n) => this.sparkles?.emitParticleAt(x, y, n),
+      confetti: (x, y, n) => this.confetti(x, y, n),
+      addBanana: (x, y, id) => { const b = new Banana(this, x, y, id); b.setLocked(true); this.bananas.push(b); return b; },
+      spawnPig: (x, y, pose: PigPose, flip, id) => { const pig = new PigNPC(this, x, y, pose, flip, id); this.world.pigs.push(pig); return pig; },
+      achievement: (id) => this.unlockAchievement(id),
+      interactions: this.interactions,
+      bonkables: [],
+      replies: this.replies,
+      setFlag: (id) => SaveManager.instance.setFlag(id),
+      hasFlag: (id) => SaveManager.instance.hasFlag(id),
+      onBananaCollected: (banana, fn) => { this.bonusHooks.set(banana, fn); },
+    };
+  }
+
+  // ------------------------------------------------------------------ opening (first new game only, skippable)
+  private playIntro(): void {
+    const pig = this.world.pigById('pig-intro');
+    const sign = this.world.signs.get('sign-mine');
+    if (!pig) return;
+    SaveManager.instance.markIntroSeen();
+    this.player.controlsEnabled = false;
+    this.player.body.setVelocityX(0);
+    const skip = el('button', 'bb-skip', INTRO.skip);
+    skip.type = 'button';
+    skip.addEventListener('click', () => this.skipIntro());
+    this.introNode = UIRoot.mountOnStage(skip);
+    this.introKey = (e: KeyboardEvent): void => { if (e.key === 'Enter' || e.key === 'Escape' || e.code === 'Space') { e.preventDefault(); this.skipIntro(); } };
+    window.addEventListener('keydown', this.introKey, true);
+    const at = (ms: number, fn: () => void): void => { this.introTimers.push(this.time.delayedCall(ms, fn)); };
+    pig.lookAt(this.player.x);
+    at(400, () => { pig.rig.setMood('smug', 2400); if (!this.settings.reducedMotion) pig.rig.impulse(0.9, 1.14, 160); this.audio.play('oink', 0.8, 0); this.dialogue.setSpeaker(pig); this.bubble.say(INTRO.steal, pig.bubbleAnchor().x, pig.bubbleAnchor().y, pig.bubbleAnchor().flip); });
+    at(1700, () => { this.player.rig.setMood('neutral'); this.makad.say('intro-look'); });
+    at(2700, () => {
+      pig.walkTo(pig.footX + 64, 110, () => {
+        if (!this.introNode) return;
+        this.audio.play('bonk', 0.6, 0);
+        pig.recoil(pig.rig.x - 40);
+        if (sign && !this.settings.reducedMotion) this.tweens.add({ targets: [sign.gfx, sign.text], angle: 5, duration: 90, yoyo: true, repeat: 2 });
+        this.captions.show(INTRO.bump, 1800);
+      });
+    });
+    at(3700, () => this.finishIntro(pig));
+  }
+
+  private finishIntro(pig: PigNPC): void {
+    this.player.controlsEnabled = true;
+    if (this.introNode) { this.introNode.remove(); this.introNode = null; }
+    if (this.introKey) { window.removeEventListener('keydown', this.introKey, true); this.introKey = null; }
+    // the title card is optional and never blocks: it fades while the player already has control
+    const card = el('div', 'bb-namecard');
+    card.append(el('div', 'bb-namecard-name', INTRO.card.name), el('div', 'bb-namecard-role', INTRO.card.role), el('div', 'bb-namecard-note', INTRO.card.note));
+    const node = UIRoot.mountOnStage(card);
+    this.introTimers.push(this.time.delayedCall(2600, () => node.remove()));
+    this.introTimers.push(this.time.delayedCall(900, () => pig.walkTo(pig.footX, 120, () => pig.lookAt(this.player.x))));
+  }
+
+  private skipIntro(silent = false): void {
+    for (const t of this.introTimers) t.remove(false);
+    this.introTimers = [];
+    if (this.introNode) { this.introNode.remove(); this.introNode = null; }
+    if (this.introKey) { window.removeEventListener('keydown', this.introKey, true); this.introKey = null; }
+    document.querySelectorAll('.bb-namecard').forEach((n) => n.remove());
+    if (silent) return;
+    const pig = this.world.pigById('pig-intro');
+    if (pig) { pig.resetToHome(); pig.holdBanana(true); pig.lookAt(this.player.x); }
+    this.bubble.hideNow();
+    this.player.controlsEnabled = true;
   }
 
   private fleeFlag(to: { x: number; y: number }): void {
@@ -387,10 +626,12 @@ export class GameScene extends Phaser.Scene {
     this.cameraCtl.shake(0.006, 220);
     this.captions.show(this.pickCaption(cause), PLAYER_TUNING.respawnDelayMs + 700);
     if (!this.settings.reducedMotion) { const burst = this.add.image(this.player.x, this.player.feetY - 50, 'spark').setScale(1.4).setTint(0xfff1a8).setDepth(DEPTH.particles); this.tweens.add({ targets: burst, scaleX: 3, scaleY: 3, alpha: 0, angle: 90, duration: 260, onComplete: () => burst.destroy() }); }
-    // the nearest pig enjoys this a little too much
-    let nearest: import('../gameplay/objects/PigNPC').PigNPC | null = null, best = 720;
-    for (const pig of this.world.pigs) { const d = Math.abs(pig.footX - this.player.x); if (d < best) { best = d; nearest = pig; } }
-    if (nearest) { nearest.lookAt(this.player.x); nearest.react('laugh'); if (Math.random() < 0.35) this.time.delayedCall(500, () => this.sayLine('death-tease', false, 'pig')); }
+    // the nearest pig enjoys this a little too much (until he has seen it three times)
+    this.director.onPlayerDied(cause, this.player.x);
+    this.encounters.onPlayerDied();
+    this.replies.hide();
+    this.makad.hide();
+    this.dialogue.hide();
     if (cause === 'bridge') this.time.delayedCall(900, () => this.sayLine('l1-bridge-fell', true, 'pig'));
   }
 
@@ -407,6 +648,7 @@ export class GameScene extends Phaser.Scene {
       // no checkpoint yet: everything back to the level's initial state
       for (const b of this.bananas) b.restore({ collected: false });
       this.world.resetAll();
+      this.encounters.resetAll();
       this.boss?.restore();
       this.bananasSpent = 0;
     } else {
@@ -428,6 +670,8 @@ export class GameScene extends Phaser.Scene {
     this.player.respawn();
     this.player.rig.setMood('embarrassed', 900);
     this.cameraCtl.snapTo(this.player.x, this.player.feetY, this.player.facing);
+    this.encounters.onPlayerRespawned();
+    this.director.onPlayerRespawned();
     bus.emit(Events.PlayerRespawned);
   }
 
@@ -465,7 +709,13 @@ export class GameScene extends Phaser.Scene {
     boss.events.on('charge', () => this.audio.play('whoosh', 1, 200));
     boss.events.on('wallHit', () => { this.audio.play('slam', 1, 100); this.cameraCtl.shake(0.01, 300); this.debris?.emitParticleAt(boss.root.x, boss.root.y - 60, 12); });
     boss.events.on('crateLand', (x: number, y: number) => { this.audio.play('impact', 0.9, 80); this.debris?.emitParticleAt(x, y, 6); this.cameraCtl.shake(0.003, 120); });
-    boss.events.on('hit', (hp: number) => { this.audio.play('bossHurt', 1, 0); if (hp === 2) this.time.delayedCall(500, () => this.bossSay('l5-phase2')); if (hp === 1) this.time.delayedCall(500, () => this.bossSay('l5-phase3')); });
+    boss.events.on('hit', (hp: number) => {
+      this.audio.play('bossHurt', 1, 0);
+      if (hp === 2) { this.time.delayedCall(350, () => boss.dropDecor()); this.time.delayedCall(600, () => this.bossSay('boss-p2')); }
+      if (hp === 1) { this.time.delayedCall(400, () => { boss.emergencyLight(true); this.audio.play('warning', 0.6, 0); }); this.time.delayedCall(600, () => this.bossSay('boss-p3')); }
+    });
+    boss.events.on('clang', () => this.audio.play('clang', 1, 150));
+    boss.events.on('bonked', () => this.finalBonk());
     boss.events.on('defeated', () => this.onBossDefeated(arena));
   }
 
@@ -485,6 +735,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.setBoss(this.boss.hp);
     this.boss.start();
     this.time.delayedCall(400, () => this.bossSay('l5-boss-start'));
+    this.time.delayedCall(3400, () => this.bossSay('boss-p1'));
   }
 
   private onBossDefeated(arena: { left: number; right: number; floorY: number; top: number }): void {
@@ -496,6 +747,12 @@ export class GameScene extends Phaser.Scene {
     this.audio.setMusicIntensity(0.4);
     this.cameraCtl.shake(0.006, 400);
     this.time.delayedCall(700, () => this.bossSay('l5-defeat'));
+    // a banner he clearly had made in advance
+    this.finalBonkDone = false; this.handoverStarted = false;
+    const bx = (arena.left + arena.right) / 2;
+    this.banner = drawBanner(this, bx, arena.top - 120, ENDING.bannerFirst);
+    this.endingObjects.push(this.banner.c);
+    this.time.delayedCall(900, () => { this.audio.play('pop', 1, 0); if (this.settings.reducedMotion) this.banner?.c.setY(arena.top + 150); else this.tweens.add({ targets: this.banner!.c, y: arena.top + 150, duration: 900, ease: 'Bounce.easeOut' }); });
     // the "golden" banana trophy lands on the floor in front of the forklift
     const tx = Phaser.Math.Clamp(this.boss.root.x - 150, arena.left + 60, arena.right - 60);
     const trophy = this.add.image(tx, arena.floorY - 24, 'banana-gold').setScale(1.2).setDepth(DEPTH.objects + 2);
@@ -522,16 +779,132 @@ export class GameScene extends Phaser.Scene {
       trophy.destroy(); glow.destroy();
       this.time.delayedCall(500, () => { this.captions.show(ENDING.trophyReveal, 2400); this.audio.play('pop', 1, 0); this.bossSay('l5-plastic'); });
       this.time.delayedCall(3100, () => { this.captions.show(ENDING.realBanana, 2600); realGlow.setAlpha(0.9); });
-      this.time.delayedCall(9000, finish);
+      autoFinish = this.time.delayedCall(12000, finish);
     });
+    let autoFinish: Phaser.Time.TimerEvent | null = null;
     this.physics.add.overlap(this.player.proxy, rzone, () => {
-      if (!gotTrophy || finished) return;
+      if (!gotTrophy || finished || this.handoverStarted) return;
+      this.handoverStarted = true;
+      autoFinish?.remove(false);
       this.audio.play('sparkle', 1, 0);
       this.sparkles?.emitParticleAt(lx + 24, arena.floorY - 60, 30);
       real.destroy(); realGlow.destroy();
       this.bossSay('l5-real');
-      this.captions.show(ENDING.closing, 2600);
-      this.time.delayedCall(1600, finish);
+      this.time.delayedCall(1500, () => this.handover(arena, finish));
+    });
+  }
+
+  /** One safe celebratory bonk after the fight: the pre-made banner gets corrected. */
+  private finalBonk(): void {
+    if (!this.boss || this.finalBonkDone) return;
+    this.finalBonkDone = true;
+    this.boss.rig.playHurt();
+    this.boss.rig.setMood('embarrassed', 2600);
+    this.bossSay('boss-final-bonk');
+    const b = this.banner;
+    if (!b) return;
+    const flip = (): void => {
+      b.label.setText(ENDING.bannerFlipped);
+      this.audio.play('pop', 1, 0);
+      const foot = this.add.text(b.c.x, b.c.y + 44, ENDING.footnote, { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '12px', color: '#2a1d12', fontStyle: 'italic', backgroundColor: '#fff8e7', padding: { x: 6, y: 2 } }).setOrigin(0.5).setDepth(DEPTH.npc + 4);
+      this.footnote = foot;
+      this.endingObjects.push(foot);
+      this.interactions.register({
+        id: 'remove-footnote', label: 'Remove', priority: 4,
+        available: () => !!this.footnote && this.player.alive && Math.abs(this.player.x - b.c.x) < 130,
+        run: () => {
+          const f = this.footnote; if (!f) return;
+          this.footnote = null;
+          this.interactions.unregister('remove-footnote');
+          this.audio.play('pop', 1, 0);
+          this.player.rig.setMood('smug', 1500);
+          if (this.settings.reducedMotion) f.destroy();
+          else this.tweens.add({ targets: f, y: f.y + 220, angle: -70, alpha: 0, duration: 700, ease: 'Quad.easeIn', onComplete: () => f.destroy() });
+        },
+      });
+    };
+    if (this.settings.reducedMotion) { flip(); return; }
+    this.tweens.add({ targets: b.c, scaleX: 0, duration: 160, ease: 'Quad.easeIn', onComplete: () => { flip(); this.tweens.add({ targets: b.c, scaleX: 1, duration: 200, ease: 'Back.easeOut' }); } });
+  }
+
+  /** Real banana, handmade trophy, and a choice: high-five, bonk, or both. Then the truce lasts four seconds. */
+  private handover(arena: { left: number; right: number; floorY: number; top: number }, finish: () => void): void {
+    const px = this.player.x;
+    const startX = Phaser.Math.Clamp(px + 260, arena.left + 80, arena.right - 60);
+    const d = new PigNPC(this, startX, arena.floorY, 'idle', true, 'dukkar-end');
+    this.world.pigs.push(d);
+    d.holdBanana(true);
+    const trophy = drawTrophy(this, startX - 30, arena.floorY - 40, ENDING.trophyFront, ENDING.trophyBack);
+    trophy.c.setScale(0.8);
+    this.endingObjects.push(trophy.c);
+    const standX = Phaser.Math.Clamp(px + 110, arena.left + 60, arena.right - 60);
+    const follow = this.time.addEvent({ delay: 16, loop: true, callback: () => { trophy.c.setPosition(d.rig.x - 30 * (d.rig.x > this.player.x ? 1 : -1), d.rig.y - 40); } });
+    const say = (key: string): void => { this.pigSay(d, key, { priority: true, force: true }); };
+    d.walkTo(standX, 150, () => {
+      follow.remove(false);
+      d.lookAt(this.player.x);
+      say('end-handover');
+      const dir = this.player.x < d.rig.x ? -1 : 1;
+      const tx = d.rig.x + dir * 60, ty = arena.floorY;
+      // trophy goes down between them; a flip shows the back, then the front again
+      this.tweens.add({ targets: trophy.c, x: tx, y: ty, scaleX: 1, scaleY: 1, duration: this.settings.reducedMotion ? 1 : 500, ease: 'Quad.easeOut', onComplete: () => {
+        this.sparkles?.emitParticleAt(tx, ty - 50, 12);
+        const showBack = (): void => { trophy.front.setVisible(false); trophy.back.setVisible(true); };
+        const showFront = (): void => { trophy.front.setVisible(true); trophy.back.setVisible(false); };
+        if (this.settings.reducedMotion) { showBack(); this.time.delayedCall(1400, showFront); }
+        else {
+          this.tweens.add({ targets: trophy.c, scaleX: -1, duration: 260, delay: 600, onComplete: showBack });
+          this.tweens.add({ targets: trophy.c, scaleX: 1, duration: 260, delay: 2300, onStart: showFront });
+        }
+      } });
+      // the real banana changes hands
+      this.time.delayedCall(900, () => {
+        d.holdBanana(false);
+        const img = this.add.image(d.rig.x, d.rig.y - 40, 'banana').setScale(0.5).setDepth(DEPTH.npc + 3);
+        this.endingObjects.push(img);
+        this.tweens.add({ targets: img, x: this.player.x, y: this.player.feetY - 70, duration: this.settings.reducedMotion ? 1 : 420, ease: 'Quad.easeOut', onComplete: () => { img.destroy(); this.audio.play('collect', 1, 0); this.collectFx(this.player.x, this.player.feetY - 70); } });
+      });
+      this.time.delayedCall(2800, () => {
+        this.makad.say('end-pick');
+        this.replies.show(null, [
+          { id: 'highfive', label: ENDING.options.highfive }, { id: 'bonk', label: ENDING.options.bonk }, { id: 'both', label: ENDING.options.both },
+        ], (pick) => {
+          const highfive = (key: string | null): void => {
+            d.lookAt(this.player.x);
+            this.audio.play('pop', 1, 0);
+            if (!this.settings.reducedMotion) { this.player.rig.impulse(0.9, 1.12, 140); d.rig.impulse(0.9, 1.12, 140); }
+            this.sparkles?.emitParticleAt((this.player.x + d.rig.x) / 2, this.player.feetY - 80, 16);
+            if (key) say(key);
+            this.unlockAchievement('truce');
+          };
+          const bonk = (key: string | null): void => {
+            this.player.facing = d.rig.x > this.player.x ? 1 : -1;
+            if (!this.settings.reducedMotion) this.player.rig.impulse(1.14, 0.9, 70);
+            d.recoil(this.player.x);
+            this.bonkBurst(d.rig.x, d.rig.y - 60);
+            this.audio.play('bonk', 1, 0); this.audio.play('squeak', 1, 0);
+            if (key) say(key);
+            this.unlockAchievement('coming');
+          };
+          let tableauDelay = 1600;
+          if (pick === 'highfive') highfive('end-highfive');
+          else if (pick === 'bonk') bonk('end-bonk');
+          else if (pick === 'both') { bonk(null); this.time.delayedCall(1000, () => highfive('end-both')); tableauDelay = 2800; }
+          this.time.delayedCall(tableauDelay, () => {
+            // the tableau: he reaches for another banana, Makad notices, everyone freezes
+            d.holdBanana(true);
+            d.rig.setMood('smug', 4000);
+            if (!this.settings.reducedMotion) d.rig.impulse(1.08, 0.94, 160);
+            this.time.delayedCall(700, () => {
+              this.player.rig.setMood('alert', 4000);
+              d.rig.setMood('alert', 4000);
+              this.audio.play('pop', 0.8, 0);
+              this.captions.show(ENDING.closing, 2600);
+              this.time.delayedCall(2600, finish);
+            });
+          });
+        }, 12000);
+      });
     });
   }
 
@@ -541,6 +914,9 @@ export class GameScene extends Phaser.Scene {
     this.running = false;
     this.player.controlsEnabled = false;
     this.player.body.setVelocityX(0);
+    this.replies.hide();
+    this.interactions.clear();
+    this.makad.setPrompt(null);
     this.audio.play('victory', 1, 0);
     if (this.flag?.fled) this.sayLine('l1-flag-caught', true, 'pig');
     this.sparkles?.emitParticleAt(this.player.x, this.player.feetY - 60, 24);
@@ -560,7 +936,7 @@ export class GameScene extends Phaser.Scene {
     if (idx >= 0 && idx === CAMPAIGN.length - 1 && CAMPAIGN.every((id) => save.data.progress.completed[id])) save.setCampaignComplete();
     const justUnlocked = !wasUnlocked && save.data.progress.pigUnlocked;
     if (isNewBest) save.setGhost(this.levelData.id, this.ghostRecorder.toRecording(this.levelData.id, levelHash(this.levelData), character, record.timeMs));
-    const endLine = PIG_LINES[`${this.levelData.id.replace('level', 'l')}-end`] ?? PIG_LINES['l5-defeat'];
+    const endLine = DUKKAR_LINES[`${this.levelData.id.replace('level', 'l')}-end`] ?? DUKKAR_LINES['l5-defeat'];
     bus.emit(Events.LevelCompleted, this.levelData.id);
     this.time.delayedCall(900, () => {
       if (!this.scene.isActive()) return;
@@ -568,14 +944,14 @@ export class GameScene extends Phaser.Scene {
       this.results.show({
         levelName: this.levelData.name, levelIndex: idx >= 0 ? idx + 1 : null, timeMs: record.timeMs, deaths: this.deaths,
         bananas, bananaTotal: this.bananas.length, best: isNewBest ? previous : save.getRecord(this.levelData.id, character, assist), isNewBest,
-        nextLevelId, pigLine: typeof endLine === 'string' ? endLine : 'See? Nothing happened. Mostly.', character,
+        nextLevelId, pigLine: typeof endLine === 'string' ? endLine : 'See? Nothing happened. Mostly.', character, comedyLine: this.comedyLine(record.timeMs, bananas),
         campaignComplete: this.levelData.boss === true && save.data.progress.campaignComplete,
         unlockLine: justUnlocked ? ENDING.unlock : null,
       }, {
         next: () => { this.results.hide(); if (nextLevelId) this.scene.restart({ ...this.sceneData, levelId: nextLevelId }); },
         replay: () => { this.results.hide(); this.scene.restart(this.sceneData); },
         title: () => { this.results.hide(); this.quitToTitle(); },
-        download: () => downloadResultsCard(this, { levelName: this.levelData.name, levelIndex: idx >= 0 ? idx + 1 : null, timeMs: record.timeMs, deaths: this.deaths, bananas, bananaTotal: this.bananas.length, character, isNewBest, campaignComplete: save.data.progress.campaignComplete && this.levelData.boss === true, assist, gameVersion: GAME_VERSION }),
+        download: () => downloadResultsCard(this, { levelName: this.levelData.name, levelIndex: idx >= 0 ? idx + 1 : null, timeMs: record.timeMs, deaths: this.deaths, bananas, bananaTotal: this.bananas.length, character, isNewBest, campaignComplete: save.data.progress.campaignComplete && this.levelData.boss === true, assist, gameVersion: GAME_VERSION, comedyLine: this.comedyLine(record.timeMs, bananas) }),
         credits: () => { this.results.hide(); showCredits(this.dialog, () => this.quitToTitle()); },
       });
     });
@@ -612,6 +988,11 @@ export class GameScene extends Phaser.Scene {
     for (const b of this.bananas) if (!this.world.fleeing.some((f) => f.banana === b)) b.tick(this.time.now);
     if (this.flag) { this.flag.alert = !this.flag.fled && Math.abs(this.flag.x - this.player.x) < 340 && this.player.alive; this.flag.tick(dt); }
     this.player.update(dt);
+    this.encounters.update(dt, this.time.now);
+    this.director.quiet = this.encounters.anyRunning() || this.endingStarted || this.finished || this.replies.open;
+    this.director.update(dt);
+    this.interactions.update();
+    this.makad.update(dt);
     if (this.boss) {
       this.boss.update(this.bossStarted ? dt : 0, this.player.x);
       const pb = this.player.body;
@@ -631,7 +1012,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     this.backdrop.update(cam.scrollX + cam.width / 2, cam.scrollY + cam.height / 2, cam.scrollX, cam.scrollY, dt);
     this.water.update(dt);
-    this.dialogue.update(this.time.now);
+    this.dialogue.update(this.time.now, !this.player.grounded);
     this.hud.setTimer(this.elapsedMs);
     DevOverlay.instance.tick();
   }
@@ -710,6 +1091,13 @@ export class GameScene extends Phaser.Scene {
     this.backdrop.destroy();
     this.water.destroy();
     this.sparkles?.destroy(); this.dust?.destroy(); this.debris?.destroy();
+    this.skipIntro(true);
+    this.encounters.destroy();
+    this.director.destroy();
+    this.makad.destroy();
+    this.replies.hide();
+    this.interactions.clear();
+    TouchControls.instance.setTalkAvailable(false);
     this.bubble.destroy();
     this.hud.destroy();
     this.captions.destroy();

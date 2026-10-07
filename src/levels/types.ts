@@ -22,7 +22,7 @@ export interface Point { x: number; y: number; }
 /** Object definitions are positioned in TILE units (x,y = top-left cell) unless noted. */
 export type LevelObjectDef =
   | { type: 'sign'; x: number; y: number; text: string; id?: string; blowAway?: boolean }
-  | { type: 'pig'; x: number; y: number; id: string; pose?: 'idle' | 'shack' | 'glass' | 'umbrella' | 'manager'; flip?: boolean }
+  | { type: 'pig'; x: number; y: number; id: string; pose?: 'idle' | 'shack' | 'glass' | 'umbrella' | 'manager' | 'escalations' | 'stuck' | 'lever'; flip?: boolean }
   | { type: 'moving-platform'; x: number; y: number; w: number; id?: string; path: Point[]; speed: number; pauseMs?: number; carries?: boolean }
   | { type: 'collapsing-bridge'; x: number; y: number; w: number; id: string; delayMs?: number; stepMs?: number }
   | { type: 'fleeing-banana'; x: number; y: number; id: string; path: Point[] }
@@ -45,7 +45,29 @@ export type LevelObjectDef =
   | { type: 'dialogue-trigger'; x: number; y: number; w: number; h: number; id: string; line: string; once?: boolean; speaker?: 'pig' | 'caption' }
   | { type: 'boss-arena'; x: number; y: number; w: number; h: number; id: string }
   | { type: 'decor'; x: number; y: number; kind: string; id?: string }
-  | { type: 'camera-hint'; x: number; y: number; w: number; h: number; id?: string; lookY?: number };
+  | { type: 'camera-hint'; x: number; y: number; w: number; h: number; id?: string; lookY?: number }
+  | EncounterDef;
+
+export type EncounterKind =
+  | 'holder'      // Dukkar holds a banana: bonk it loose, or confront him (three replies)
+  | 'showme'      // "It's literally one jump." → "Show me." → he fails, you learn the arc
+  | 'button'      // the red button nobody should press
+  | 'chase'       // he steals a bonus banana and runs
+  | 'shortcut'    // swamp detour dressing + exit lines
+  | 'callback'    // later-level callback to the shortcut ("I know a—")
+  | 'desk'        // Prank Complaint Department
+  | 'escalations' // same pig, taller box
+  | 'crate'       // emergency supplies
+  | 'stuck'       // Dukkar tangled in his own trap
+  | 'apology'     // Official Apology Kit (with distant, unrelated explosion)
+  | 'umbrella'    // tiny umbrella over the checkpoint machinery
+  | 'backfire';   // the over-engineered coconut machine
+
+/**
+ * Optional comedy encounter. (x, y) is the anchor cell (usually Dukkar's feet); kind-specific numbers go in `data`
+ * (tile units unless noted). `pig` references an existing pig id, otherwise the encounter spawns its own.
+ */
+export interface EncounterDef { type: 'encounter'; kind: EncounterKind; x: number; y: number; id: string; pig?: string; flip?: boolean; data?: Record<string, number> }
 
 export type LevelObjectType = LevelObjectDef['type'];
 
@@ -63,6 +85,8 @@ export interface LevelData {
   music?: string;
   /** If set, finishing requires beating the boss instead of touching a flag. */
   boss?: boolean;
+  /** The one banana Dukkar grudgingly respects you for (cell coordinates). */
+  hardBanana?: Point;
 }
 
 export interface ParsedCheckpoint extends Point { id: string; index: number; }

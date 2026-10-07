@@ -37,7 +37,7 @@ export class RotatePrompt {
     icon.setAttribute('aria-hidden', 'true');
     icon.append(el('div', 'bb-phone-screen'));
     const title = el('h2', '', 'Rotate for the best experience'); title.id = 'bb-rotate-title';
-    const text = el('p', '', 'Banana Betrayal is a wide game. Landscape shows what the pig has planned ahead of you. You can keep playing in portrait if you prefer.');
+    const text = el('p', '', 'Banana Betrayal is a wide game. Landscape shows what Dukkar has planned ahead of you. You can keep playing in portrait if you prefer.');
     const row = el('div', 'bb-stack');
     row.append(button('Continue in portrait', () => this.dismiss()));
     panel.append(icon, title, text, row);

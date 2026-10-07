@@ -101,6 +101,37 @@ describe('SaveManager', () => {
   });
 });
 
+describe('achievements and v2 migration', () => {
+  it('migrates v1 saves by adding an empty achievements map and introSeen=false', () => {
+    const out = migrateSave({ version: 1, progress: { completed: { level1: true } } });
+    expect(out.version).toBe(SAVE_VERSION);
+    expect(out.achievements).toEqual({});
+    expect(out.progress.introSeen).toBe(false);
+    expect(out.progress.completed).toEqual({ level1: true });
+  });
+  it('keeps valid achievement entries and drops junk', () => {
+    const out = migrateSave({ version: 2, achievements: { unbothered: '2026-10-08T00:00:00.000Z', 'BAD ID!': 'x', truce: 42 } });
+    expect(out.achievements).toEqual({ unbothered: '2026-10-08T00:00:00.000Z' });
+  });
+  it('unlocks once, persists, and survives a reload', () => {
+    const storage = new MemoryStorage();
+    const a = SaveManager.create(storage);
+    expect(a.unlockAchievement('unbothered')).toBe(true);
+    expect(a.unlockAchievement('unbothered')).toBe(false);
+    a.flush();
+    const b = SaveManager.create(storage);
+    expect(b.hasAchievement('unbothered')).toBe(true);
+    expect(b.unlockAchievement('unbothered')).toBe(false);
+  });
+  it('resetProgress clears achievements but keeps intro/first-run flags', () => {
+    const a = SaveManager.create(new MemoryStorage());
+    a.unlockAchievement('truce'); a.markIntroSeen();
+    a.resetProgress();
+    expect(a.data.achievements).toEqual({});
+    expect(a.data.progress.introSeen).toBe(true);
+  });
+});
+
 describe('completion and unlock rules', () => {
   it('unlocks the pig only when the campaign is complete', () => {
     const a = SaveManager.create(new MemoryStorage());

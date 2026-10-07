@@ -17,15 +17,26 @@ Automated checks cover physics, saves, level data and layout geometry. These ite
 - [ ] Pause (❚❚) works; Settings opens and closes; the game resumes where it was.
 
 ## First few traps (Level 1, fresh save)
-- [ ] The intro sign and the pig's "Relax. I tested this." read clearly before the first jump.
-- [ ] The ledge banana shivers, hops twice, then slumps; the pig comments; it can then be collected.
+- [ ] The intro sign and Dukkar's "Relax. I tested this." read clearly before the first jump.
+- [ ] The ledge banana shivers, hops twice, then slumps; Dukkar comments; it can then be collected.
 - [ ] Checkpoint 1 flashes "Checkpoint" with confetti; dying afterwards respawns there with bananas collected since the checkpoint restored.
-- [ ] Bridge: the planks shake for about a third of a second before dropping one by one; running straight across survives; stopping drops you into the water with a bridge caption, and the pig says "Okay, that one was half oak."
-- [ ] Coconut: the "!" and wobble give about half a second of warning; the thud and debris land; the pig comments.
+- [ ] Bridge: the planks shake for about a third of a second before dropping one by one; running straight across survives; stopping drops you into the water with a bridge caption, and Dukkar says "Okay, that one was half oak."
+- [ ] Coconut: the "!" and wobble give about half a second of warning; the thud and debris land; Dukkar comments.
 - [ ] The finish flag fidgets as you approach, runs once to the dead end, and can be cornered.
 - [ ] No death shows the same caption twice in a row.
 
+## Dukkar (Level 1 → 2, fresh save)
+- [ ] New game: the opening (banana grab, "Come get it, Makad.", the sign bump) plays once, Skip works, and controls respond the instant it ends; restarting the level does not replay it.
+- [ ] Bonk (J): the swing is immediate, the BONK burst and squeak land, a second press within half a second does nothing, and bonking air gives only a whiff.
+- [ ] Bonking Dukkar at the start drops the banana; the caption "Dukkar deserved that." appears only the first time ever.
+- [ ] The prompt above Makad switches between DUKKAR!, Talk, Show me, Press as you move; on a phone the ! button lights up at the same moments.
+- [ ] "Show me": Dukkar walks, hops into the pit, pops back up with "Controller issue."; the dotted arc is readable; the sign appears briefly after you clear the jump.
+- [ ] Red button both ways: walking past makes him press it and take the glove; pressing it yourself gives confetti and GOTCHA. Dying before the checkpoint resets the whole setup.
+- [ ] Reactions: standing still near him for a few seconds, walking back, dodging a trap, dying three times in one section (taunts stop, a hint and a marker appear), reaching a checkpoint (applause, then a sheepish stop).
+- [ ] Level 2 help desk: Complain → pick a complaint with 1/2/3 or tap → printout → REFUND stamp → banana on his head; the moustache falls off when bonked.
+- [ ] No Dukkar line appears while you are mid-jump over a hazard.
+
 ## Everything else
-- [ ] Completing Level 5 shows the plastic-trophy reveal, the real banana by the lunch, the results card and the credits; the pig is selectable afterwards.
+- [ ] Completing Level 5: phase lines, bolt-ons falling off, the emergency light; after the win a bonk flips DUKKAR WINS to MAKAD WINS and the footnote can be removed; the plastic reveal, the handover, the three-choice moment and "Truce lasted 4 seconds." read clearly; the results card shows one comedy line; Dukkar is selectable afterwards.
 - [ ] "Download results card" saves a PNG that looks right.
 - [ ] Reduced motion (Settings) calms the title loop and particles; Low quality keeps the game smooth on an older laptop.

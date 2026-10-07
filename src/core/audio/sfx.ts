@@ -2,7 +2,8 @@
 export type SfxName =
   | 'jump' | 'land' | 'collect' | 'warning' | 'collapse' | 'impact' | 'death' | 'checkpoint' | 'ui' | 'uiBack'
   | 'bossCharge' | 'bossHit' | 'bossHurt' | 'victory' | 'splash' | 'oink' | 'receipt' | 'whoosh' | 'bubble'
-  | 'switch' | 'slam' | 'crumble' | 'sparkle' | 'flagRun' | 'fanfare' | 'pop';
+  | 'switch' | 'slam' | 'crumble' | 'sparkle' | 'flagRun' | 'fanfare' | 'pop'
+  | 'bonk' | 'squeak' | 'whiff' | 'glove' | 'stamp' | 'boing' | 'clang' | 'applause' | 'boom' | 'callout';
 
 const rnd = (a: number, b: number): number => a + Math.random() * (b - a);
 
@@ -151,6 +152,49 @@ export function synthesize(name: SfxName, ctx: AudioContext, out: AudioNode, noi
       break;
     case 'victory':
       [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(ctx, out, 'triangle', f, f, 0.22, v(0.16), t + i * 0.11));
+      break;
+    case 'bonk':
+      noise(ctx, out, noiseBuf, 0.07, v(0.35), 'lowpass', 1800, 300);
+      tone(ctx, out, 'square', 330, 90, 0.09, v(0.2));
+      tone(ctx, out, 'sine', 180, 60, 0.12, v(0.25));
+      break;
+    case 'squeak': {
+      const f = rnd(900, 1200);
+      tone(ctx, out, 'sawtooth', f, f * 1.8, 0.09, v(0.09), t, 0.01);
+      tone(ctx, out, 'sawtooth', f * 1.8, f * 0.9, 0.12, v(0.08), t + 0.09, 0.01);
+      break;
+    }
+    case 'whiff':
+      noise(ctx, out, noiseBuf, 0.12, v(0.12), 'bandpass', 600, 1800, 1.2, t, 0.03);
+      break;
+    case 'glove':
+      tone(ctx, out, 'sine', 90, 160, 0.14, v(0.3));
+      noise(ctx, out, noiseBuf, 0.1, v(0.25), 'lowpass', 1200, 300);
+      tone(ctx, out, 'square', 440, 220, 0.14, v(0.1), t + 0.06);
+      break;
+    case 'stamp':
+      noise(ctx, out, noiseBuf, 0.05, v(0.3), 'lowpass', 2400, 400);
+      tone(ctx, out, 'sine', 160, 70, 0.1, v(0.3));
+      break;
+    case 'boing':
+      tone(ctx, out, 'sine', 180, 520, 0.22, v(0.18), t, 0.01);
+      tone(ctx, out, 'triangle', 360, 900, 0.2, v(0.1), t + 0.03, 0.01);
+      break;
+    case 'clang':
+      tone(ctx, out, 'square', 820, 780, 0.25, v(0.12));
+      tone(ctx, out, 'sine', 1240, 1180, 0.3, v(0.08));
+      noise(ctx, out, noiseBuf, 0.06, v(0.2), 'highpass', 3000);
+      break;
+    case 'applause':
+      for (let i = 0; i < 14; i++) noise(ctx, out, noiseBuf, 0.04, v(0.12), 'bandpass', rnd(1500, 3500), undefined, 2, t + i * 0.06 + rnd(0, 0.02));
+      break;
+    case 'boom':
+      noise(ctx, out, noiseBuf, 0.7, v(0.25), 'lowpass', 500, 60, 1, t, 0.02);
+      tone(ctx, out, 'sine', 70, 30, 0.6, v(0.3));
+      break;
+    case 'callout':
+      tone(ctx, out, 'square', 520, 660, 0.12, v(0.12));
+      tone(ctx, out, 'square', 660, 520, 0.14, v(0.1), t + 0.12);
       break;
     case 'fanfare':
       [392, 523, 659, 784].forEach((f, i) => { tone(ctx, out, 'square', f, f, 0.18, v(0.09), t + i * 0.13); tone(ctx, out, 'triangle', f * 2, f * 2, 0.18, v(0.07), t + i * 0.13); });

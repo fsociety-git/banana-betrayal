@@ -1,6 +1,7 @@
 import { InputManager } from '../core/input/InputManager';
 import { SaveManager } from '../core/save/SaveManager';
 import { SettingsService } from '../core/settings/SettingsService';
+import { NAMES } from '../content/script';
 import { CAMPAIGN, getLevel } from '../levels';
 import { formatTime } from './Hud';
 import { button, el, trapFocus, UIRoot } from './UIRoot';
@@ -19,7 +20,7 @@ export class LevelSelectMenu {
     const panel = el('div', 'bb-panel');
     panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'bb-levels-title');
     const title = el('h2', '', 'Levels'); title.id = 'bb-levels-title';
-    const sub = el('p', 'bb-muted', `Replay mode: timer on, personal bests tracked${assist ? ' (assist records)' : ''}. Playing as ${character}.`);
+    const sub = el('p', 'bb-muted', `Replay mode: timer on, personal bests tracked${assist ? ' (assist records)' : ''}. Playing as ${character === 'pig' ? NAMES.rival : NAMES.hero}.`);
     const grid = el('div', 'bb-levels');
     CAMPAIGN.forEach((id, i) => {
       const level = getLevel(id);

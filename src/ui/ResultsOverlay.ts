@@ -1,4 +1,5 @@
 import type { LevelRecord } from '../core/save/schema';
+import { NAMES } from '../content/script';
 import { InputManager } from '../core/input/InputManager';
 import { formatTime } from './Hud';
 import { button, el, trapFocus, UIRoot } from './UIRoot';
@@ -14,6 +15,8 @@ export interface ResultsInfo {
   isNewBest: boolean;
   nextLevelId: string | null;
   pigLine: string;
+  /** One neutral, context-aware comedy line. */
+  comedyLine?: string;
   character: 'monkey' | 'pig';
   campaignComplete?: boolean;
   unlockLine?: string | null;
@@ -41,7 +44,8 @@ export class ResultsOverlay {
     panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'bb-results-title');
     const kicker = el('div', 'bb-intro-kicker', info.levelIndex !== null ? `Level ${info.levelIndex} complete` : 'Complete');
     const title = el('h2', '', info.levelName); title.id = 'bb-results-title';
-    const quote = el('p', 'bb-quote', `“${info.pigLine}” — ${info.character === 'pig' ? 'Monkey' : 'Pig'}`);
+    const quote = el('p', 'bb-quote', `“${info.pigLine}” — ${info.character === 'pig' ? NAMES.hero : NAMES.rival}`);
+    const comedy = info.comedyLine ? el('p', 'bb-muted bb-comedy', info.comedyLine) : null;
     const stats = el('div', 'bb-statgrid');
     const stat = (label: string, value: string, extra = ''): HTMLElement => {
       const d = el('div', `bb-stat ${extra}`.trim());
@@ -61,6 +65,7 @@ export class ResultsOverlay {
     row.append(button('Download results card', actions.download, 'secondary'));
     row.append(button('Return to title', actions.title, 'secondary'));
     panel.append(kicker, title, quote, stats, best);
+    if (comedy) panel.append(comedy);
     if (info.unlockLine) panel.append(el('p', 'bb-unlock-badge', `🐷 ${info.unlockLine}`));
     panel.append(row);
     screen.append(panel);

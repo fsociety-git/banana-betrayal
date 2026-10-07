@@ -16,8 +16,8 @@ export class TouchControls {
   private root: HTMLElement;
   private mode: TouchMode = 'auto';
   private visibleWhenPlaying = false;
-  private buttons = new Map<'left' | 'right' | 'jump', HTMLButtonElement>();
-  private pointerAction = new Map<number, 'left' | 'right' | 'jump'>();
+  private buttons = new Map<'left' | 'right' | 'jump' | 'bonk' | 'interact', HTMLButtonElement>();
+  private pointerAction = new Map<number, 'left' | 'right' | 'jump' | 'bonk' | 'interact'>();
 
   private constructor() {
     this.root = el('div', 'bb-touch');
@@ -25,7 +25,9 @@ export class TouchControls {
     const padL = el('div', 'pad left');
     const padR = el('div', 'pad right');
     padL.append(this.makeButton('left', '◀'), this.makeButton('right', '▶'));
-    padR.append(this.makeButton('jump', 'JUMP'));
+    const cluster = el('div', 'cluster');
+    cluster.append(this.makeButton('interact', '!'), this.makeButton('bonk', 'BONK'));
+    padR.append(cluster, this.makeButton('jump', 'JUMP'));
     this.root.append(padL, padR);
     UIRoot.mount(this.root);
     for (const type of ['touchstart', 'touchmove'] as const) {
@@ -61,10 +63,11 @@ export class TouchControls {
     this.root.style.setProperty('--pad-bottom', underStrip ? `${Math.max(16, roomBelow - 120)}px` : '');
   }
 
-  private makeButton(action: 'left' | 'right' | 'jump', label: string): HTMLButtonElement {
-    const b = el('button', action === 'jump' ? 'jump' : 'dir', label);
+  private makeButton(action: 'left' | 'right' | 'jump' | 'bonk' | 'interact', label: string): HTMLButtonElement {
+    const b = el('button', action === 'jump' ? 'jump' : action === 'bonk' ? 'bonk' : action === 'interact' ? 'talk' : 'dir', label);
     b.type = 'button';
-    b.setAttribute('aria-label', action === 'jump' ? 'Jump' : action === 'left' ? 'Move left' : 'Move right');
+    const labels = { jump: 'Jump', left: 'Move left', right: 'Move right', bonk: 'Bonk', interact: 'Talk back' } as const;
+    b.setAttribute('aria-label', labels[action]);
     const input = InputManager.instance;
     const press = (e: PointerEvent): void => {
       e.preventDefault();
@@ -100,6 +103,14 @@ export class TouchControls {
     b.addEventListener('contextmenu', (e) => e.preventDefault());
     this.buttons.set(action, b);
     return b;
+  }
+
+  /** Dim the talk button when Makad has nothing to say. */
+  setTalkAvailable(on: boolean): void {
+    const b = this.buttons.get('interact');
+    if (!b) return;
+    b.classList.toggle('available', on);
+    b.setAttribute('aria-disabled', on ? 'false' : 'true');
   }
 
   setMode(mode: TouchMode): void { this.mode = mode; this.refresh(); }

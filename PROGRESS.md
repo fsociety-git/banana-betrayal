@@ -2,7 +2,7 @@
 
 ## 2026-10-08 — Milestone A started
 - Chose Phaser 4.2.1 (npm latest, stable), TypeScript 7.0.2, Vite 8.3.3, Vitest 5.0.3.
-- Cut both Higgsfield characters out of their backgrounds (flood-fill matte, defringed), exported game-size whole/head/body layers to public/assets/characters. Originals preserved in concept/, full-res cutouts in art/cutouts/.
+- Cut both generated character portraits out of their backgrounds (flood-fill matte, defringed), exported game-size whole/head/body layers to public/assets/characters. Originals preserved in concept/, full-res cutouts in art/cutouts/.
 
 ## Milestone A — done
 - Vite 8 + TS 7 + Phaser 4 scaffold; logical 960x540 with DPR-aware camera zoom.
@@ -59,3 +59,12 @@
 - Portrait: a dismissable "Rotate for the best experience" card (once per session) pauses gameplay while shown; Continue keeps playing in portrait with the full 16:9 view (no world stretching or cropping); landscape auto-dismisses it.
 - Verified with an iframe viewport harness (`public/dev/frame.html`) at 390×844, 844×390 and 1280×720: initial loads and resize-event transitions produce identical geometry (portrait strip 390×219 at y=312 with HUD above and pads below; landscape canvas 693×390 centred at x=75 with HUD inside; desktop full-frame). Simultaneous move + jump via two synthetic touch pointers moved 163 px while jumping 126 px; releases clear both. Jump input sets vertical velocity on the very first frame; anticipation is visual only.
 - Not verified on a physical phone; synthetic pointer events are not real touches.
+
+## Comedy and character-interaction update
+- Names and framing: Makad (monkey) and Dukkar (pig) everywhere (content, UI, HUD labels, metadata, docs); credits list roles and asset origins only; a content test bans relationship wording.
+- Bonk: `Player.tryBonk()` (120 ms window, 450 ms cooldown, 14–74 px in front, no effect on movement or jumping); `Bonkable` targets resolved by AABB in `GameScene.doBonk`; pigs recoil with rotating lines, encounter handlers can intercept (drop a banana, lose a moustache), the forklift clangs until it is beaten.
+- Contextual actions: `InteractionManager` picks one available action (DUKKAR!, Talk, Show me, Press, Complain, Open, Pull, Flip sign, Remove); prompt chip above Makad; touch `!` button lights up; `ReplyChooser` pauses gameplay input while open (1/2/3, arrows, tap, Esc).
+- Dialogue scheduling: `DialoguePolicy` (gap, repeat window, once, airborne suppression, taunt budget, priority interrupts with a 400 ms guard, cancel on death). `ReactionDirector`: waiting, walking back, avoided trap, caught laughing, hints + marker after three deaths in a section, SKILL ISSUE sign removal on a first-try clear, applause that stops, hard-banana respect, flinch at impacts.
+- Encounters (`src/gameplay/encounters`): explicit idle → anticipation → active → payoff → complete; baselines never capture a gag mid-flight (unfinished → idle); death before a checkpoint resets everything; completed outcomes survive restores; locked bonus bananas count toward the level total and release exactly once.
+- Opening cinematic (new campaign only, skippable, `introSeen`), title-screen freeze-and-inspect beat with escalating attempts, boss phase staging, post-fight banner flip + footnote, handover ending with three choices and the four-second truce tableau, achievements (save v2, toast once), one context-aware results line.
+- Verified in the browser with deterministic stepping: every encounter on all five levels, both red-button paths, both coconut paths, the chase (bonk and ignored), replies, death resets, the full boss/ending flow. 54 unit tests.

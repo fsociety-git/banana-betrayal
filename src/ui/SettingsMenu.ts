@@ -38,7 +38,7 @@ export class SettingsMenu {
     const assistHead = el('h2', 'bb-section', 'Assist mode');
     assistHead.style.fontSize = '1.1rem';
     form.append(assistHead);
-    form.append(this.toggle('Enable assist mode', 'assist', s.assist.enabled, (v) => svc.update({ assist: { ...svc.settings.assist, enabled: v } }), 'Records set with assist on are kept separately. No judgement — the pig does enough of that.'));
+    form.append(this.toggle('Enable assist mode', 'assist', s.assist.enabled, (v) => svc.update({ assist: { ...svc.settings.assist, enabled: v } }), 'Records set with assist on are kept separately. No judgement — Dukkar does enough of that.'));
     form.append(this.toggle('Slower hazard cycles', 'assist-slow', s.assist.slowHazards, (v) => svc.update({ assist: { ...svc.settings.assist, slowHazards: v } })));
     form.append(this.toggle('Extra checkpoints', 'assist-cp', s.assist.extraCheckpoints, (v) => svc.update({ assist: { ...svc.settings.assist, extraCheckpoints: v } })));
 
@@ -61,7 +61,7 @@ export class SettingsMenu {
     const ok = window.confirm('Reset all saved progress, records and ghosts? Settings are kept. This cannot be undone.');
     if (!ok) return;
     SaveManager.instance.resetProgress();
-    UIRoot.toast('Progress reset. The pig is thrilled.');
+    UIRoot.toast('Progress reset. Dukkar is thrilled.');
     this.onResetProgress?.();
     this.close();
   }
