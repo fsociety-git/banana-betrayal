@@ -34,3 +34,10 @@
 - Downloadable 1200x630 results card rendered locally on a canvas.
 - Assist mode: slower hazard cycles and extra mid-way checkpoints; assist records kept separately.
 - Deterministic browser test hook `__bbTest.sim(ms)` steps the game manually (immune to hidden-tab throttling).
+
+## Milestone E/F — polish, testing, deployment prep
+- Direct squash detection for crushers and the forklift (Arcade's overlap bias rejects fast immovable bodies).
+- Reduced motion gates particles and rig animation; render scale re-applies when quality changes; assist checkpoints; touch controls verified in portrait and landscape.
+- Production build (195 kB app + 1.37 MB Phaser, 417 kB gzip total) verified from a sub-directory; GitHub Pages workflow added; README with screenshots, controls, architecture, editing guide, limitations.
+- 36 unit tests passing. Browser playtests of every mechanic, the boss and the ending via deterministic stepping.
+- Deployment itself not performed: no repository was authorised; exact remaining step documented in README.

@@ -132,7 +132,7 @@ export class GameScene extends Phaser.Scene {
     this.snapshots = new SnapshotRegistry();
 
     // world
-    this.backdrop = new Backdrop(this, this.palette, this.settings.settings.quality, 7);
+    this.backdrop = new Backdrop(this, this.palette, this.settings.settings.quality, 7, this.settings.reducedMotion);
     this.terrain = new Terrain(this, this.level, this.palette, 1337);
     this.water = new Water(this, this.level.water, this.palette);
     this.decor.push(...autoDecorate(this, this.level.grid, this.level.cols, this.level.rows, this.palette, rng, DECOR_BY_THEME[data.theme] ?? ['bush']));
@@ -565,6 +565,9 @@ export class GameScene extends Phaser.Scene {
       this.boss.update(this.bossStarted ? dt : 0, this.player.x);
       const pb = this.player.body;
       if (this.player.alive && this.boss.crateHits(pb.left, pb.right, pb.top, pb.bottom)) this.kill('boss');
+      // the forklift moves faster per step than Arcade's overlap bias allows, so contact is checked directly
+      const bb = this.boss.body;
+      if (this.player.alive && this.boss.deadly && bb.enable && pb.right > bb.left + 6 && pb.left < bb.right - 6 && pb.bottom > bb.top + 8 && pb.top < bb.bottom) this.kill('boss');
     }
     if (this.player.alive && this.running) this.ghostRecorder.update(delta, this.player.x, this.player.feetY, this.player.facing, this.player.state);
     this.ghostPlayer?.update(delta);

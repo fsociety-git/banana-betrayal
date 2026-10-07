@@ -43,7 +43,7 @@ export class TitleScene extends Phaser.Scene {
     const palette = THEMES.jungle;
     fitCamera(this.cameras.main);
     this.cameras.main.setBackgroundColor(palette.skyBottom);
-    this.backdrop = new Backdrop(this, palette, SettingsService.instance.settings.quality, 3);
+    this.backdrop = new Backdrop(this, palette, SettingsService.instance.settings.quality, 3, SettingsService.instance.reducedMotion);
     this.backdrop.update(GAME_WIDTH / 2, GAME_HEIGHT / 2, 0, 0, 0);
     // ground
     const groundY = GAME_HEIGHT - 60;

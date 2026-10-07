@@ -98,10 +98,10 @@ export const CAPTIONS: Record<DeathCause, string[]> = {
     'Safety guard not included.',
   ],
   generic: [
-    'A small setback for monkeykind.',
-    'Your complaint has been forwarded to the pig.',
     'Everything is fine. Try again.',
     'The pig has been notified and is laughing.',
+    'Bananas: 0. Dignity: also 0.',
+    'Respawning. Nobody is counting. (The HUD is counting.)',
   ],
 };
 

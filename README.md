@@ -5,7 +5,13 @@
 A comedy 2D platformer for the browser. A monkey wants the legendary golden banana; a pig claims to know the way.
 Every helpful suggestion makes the journey worse. Built with Phaser 4, TypeScript and Vite; ships as a static site.
 
-> Screenshots and the live link are added in the final section of this README once deployed.
+![Title screen](docs/screenshots/title.jpg)
+
+| | |
+|---|---|
+| ![Level 1: the totally safe bridge](docs/screenshots/level1-bridge.jpg) | ![Level 4: Cloud Storage](docs/screenshots/level4-clouds.jpg) |
+| ![Level 5: the pig's banana forklift](docs/screenshots/level5-boss.jpg) | ![Results card](docs/screenshots/results.jpg) |
+| ![Touch controls, portrait](docs/screenshots/mobile-portrait.jpg) | ![Touch controls, landscape](docs/screenshots/mobile-landscape.jpg) |
 
 ## Play it locally
 
@@ -98,3 +104,40 @@ and restore exactly; all text is in `src/content/script.ts`.
 - Characters are single illustrations animated procedurally (squash, bob, tilt, shadow); there is no drawn walk cycle.
 - The ghost is a sampled visual replay of positions, not a deterministic physics re-simulation.
 - Audio is procedural WebAudio; it starts after the first click/tap as browsers require.
+
+## Testing
+
+- `npm test` runs 36 Vitest unit tests: level parser and validator (every shipped level), save schema sanitising and
+  v0→v1 migration, record comparison, completion/unlock rules, trap state machine timing and snapshots, the
+  snapshot registry, level hashing for ghost compatibility, and content integrity (≥30 captions, every dialogue
+  key referenced by a level exists).
+- Browser playtests were driven through the dev-only hooks (`window.__bbTest`) in Chrome: movement tuning
+  (jump heights, buffering, coyote), moving-platform riding, one-way planks, every trap type, checkpoint
+  restore (including banana rollback), death captions by cause, the full boss fight and ending, pause/settings/
+  quit, level select and replay mode, the results overlay and card download, the first-run card, the production
+  build served from a `/banana-betrayal/` sub-directory, and portrait/landscape layouts with touch controls.
+- Performance on the development machine (Apple Silicon MacBook, 120 Hz display): ~7 ms average frame time in
+  the factory level at the 120 fps cap; simulated CPU cost 2.7–4.9 ms per frame in the heaviest levels.
+
+## Deployment
+
+The repository is ready for GitHub Pages: `vite.config.ts` uses a relative base so the build works from a
+repository sub-directory, and `.github/workflows/deploy.yml` builds, tests and publishes `dist/` on every push to
+`main`. Remaining steps for the owner:
+
+```bash
+gh repo create banana-betrayal --public --source=. --remote=origin --push
+# then in the repository settings → Pages → Source: "GitHub Actions"
+```
+
+After the first workflow run the game is served at `https://<user>.github.io/banana-betrayal/`.
+
+## Asset checklist (optional, improves animation)
+
+The game is complete with the two supplied portraits. Extra poses would materially improve the feel; each should
+be the same character on a transparent background at roughly the same scale:
+
+- Monkey: jump (arms up), fall/flail, hurt (eyes shut, limbs splayed), victory (trophy raised).
+- Pig: driving pose (seated, hooves on a wheel), laughing, stunned (stars), defeated/sulking.
+
+Drop them into `public/assets/characters/` and wire the keys in `src/content/characters.ts`.

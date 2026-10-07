@@ -56,14 +56,14 @@ export class BananaMachine implements Resettable<{ used: boolean }> {
   }
 
   private printReceipt(): void {
-    const c = this.scene.add.container(this.x - 24, this.footY - 72).setDepth(DEPTH.objects + 4);
+    const c = this.scene.add.container(this.x - 40, this.footY - 72).setDepth(DEPTH.objects + 4);
     const paper = this.scene.add.graphics();
     const lines = ['RECEIPT', '------------', 'Banana (free) .... 0', 'Processing fee ... 1 banana', 'Handling .......... 0', 'Convenience ....... 0', 'Trust ....... priceless', '------------', 'TOTAL ...... 1 banana', 'Thank you!', 'No refunds.'];
     const h = 14 + lines.length * 13;
-    paper.fillStyle(0x2c1a0e, 1); paper.fillRect(-2, -2, 112, h + 4);
-    paper.fillStyle(0xfff8e7, 1); paper.fillRect(0, 0, 108, h);
-    paper.fillStyle(0x2c1a0e, 1); for (let i = 0; i < 9; i++) paper.fillTriangle(i * 12, h, i * 12 + 6, h - 6, i * 12 + 12, h);
-    const text = this.scene.add.text(6, 6, lines.join('\n'), { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '9px', color: '#2c1a0e', lineSpacing: 2 });
+    paper.fillStyle(0x2c1a0e, 1); paper.fillRect(-2, -2, 134, h + 4);
+    paper.fillStyle(0xfff8e7, 1); paper.fillRect(0, 0, 130, h);
+    paper.fillStyle(0x2c1a0e, 1); for (let i = 0; i < 11; i++) paper.fillTriangle(i * 12, h, i * 12 + 6, h - 6, i * 12 + 12, h);
+    const text = this.scene.add.text(8, 6, lines.join('\n'), { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '9px', color: '#2c1a0e', lineSpacing: 2 });
     c.add([paper, text]);
     const mask = this.scene.add.graphics().setVisible(false);
     c.setScale(1, 0.02);

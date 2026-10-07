@@ -20,7 +20,7 @@ export class Backdrop {
   private particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private palette: ThemePalette;
 
-  constructor(scene: Phaser.Scene, palette: ThemePalette, quality: 'high' | 'balanced' | 'low', seed: number) {
+  constructor(scene: Phaser.Scene, palette: ThemePalette, quality: 'high' | 'balanced' | 'low', seed: number, reducedMotion = false) {
     this.scene = scene;
     this.palette = palette;
     this.sky = scene.add.image(0, 0, Backdrop.skyTexture(scene, palette)).setDepth(DEPTH.skyFar).setDisplaySize(W + 80, H + 80);
@@ -32,7 +32,7 @@ export class Backdrop {
       this.layers.push({ sprite, fx: d.fx, fy: d.fy, yOffset: d.yOffset });
     }
     this.haze = scene.add.rectangle(0, 0, W + 80, H + 80, palette.haze, palette.hazeAlpha * (quality === 'low' ? 0.5 : 1)).setDepth(DEPTH.decorBack - 5);
-    if (quality !== 'low') {
+    if (quality !== 'low' && !reducedMotion) {
       this.particles = scene.add.particles(0, 0, 'dot', {
         x: { min: -W / 2, max: W / 2 }, y: { min: -H / 2, max: H / 2 },
         lifespan: { min: 4000, max: 8000 }, speedX: { min: -12, max: 18 }, speedY: { min: -14, max: 6 },

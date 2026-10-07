@@ -346,6 +346,15 @@ export class LevelWorld {
     for (const c of this.crumbles) c.update(dtMs);
     for (const f of this.fallers) f.update(dtMs);
     for (const h of this.hazards) h.update(dt);
+    // Crushers move too fast per step for Arcade's overlap bias to resolve, so squash is detected directly:
+    // deadly while slamming/holding whenever the block's underside cuts through the player's body.
+    const pb = this.ctx.player.body;
+    for (const c of this.crushers) {
+      if (!c.deadly || !this.ctx.player.alive) continue;
+      const b = c.body;
+      const horizontal = pb.right > b.left + 4 && pb.left < b.right - 4;
+      if (horizontal && pb.top < b.bottom - 10 && pb.bottom >= b.bottom - 2) this.ctx.kill('crush');
+    }
     for (const b of this.bridges) b.update(dtMs);
     for (const f of this.fleeing) f.update(timeMs, this.ctx.player.x, this.ctx.player.feetY);
     for (const pig of this.pigs) pig.update(dt);
