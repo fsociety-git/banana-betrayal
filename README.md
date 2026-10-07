@@ -102,6 +102,11 @@ and restore exactly; all text is in `src/content/script.ts`.
   No third-party art or audio files are used.
 - Fonts: system font stack (no external requests).
 
+## Release checklist
+
+A human playtest checklist (sound, phone controls, the first traps) is in [`docs/playtest-checklist.md`](docs/playtest-checklist.md).
+A viewport harness for exact-size layout checks lives at `/dev/frame.html?size=390x844&src=/%3Flevel%3Dlevel1` in dev builds.
+
 ## Known limitations
 
 - Characters are single illustrations animated procedurally (squash, bob, tilt, shadow); there is no drawn walk cycle.

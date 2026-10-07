@@ -21,4 +21,7 @@ export const Events = {
   Dialogue: 'dialogue',
   HudUpdate: 'hud-update',
   AudioUnlocked: 'audio-unlocked',
+  LayoutChanged: 'layout-changed',
+  RotatePromptShown: 'rotate-prompt-shown',
+  RotatePromptHidden: 'rotate-prompt-hidden',
 } as const;

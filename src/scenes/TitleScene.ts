@@ -65,7 +65,7 @@ export class TitleScene extends Phaser.Scene {
     g.fillStyle(palette.soilDeep, 0.5); g.fillRect(-100, gy + 60, GAME_WIDTH + 200, 200);
     g.fillStyle(palette.grass, 1); g.fillRect(-100, gy, GAME_WIDTH + 200, 11);
     g.fillStyle(palette.grassDark, 1); g.fillRect(-100, gy + 11, GAME_WIDTH + 200, 4);
-    for (let x = -80; x < GAME_WIDTH + 100; x += 13) { g.fillStyle(palette.outline, 1); g.fillTriangle(x - 4, gy + 1, x + ((x / 13) % 3) - 1, gy - 7 - ((x / 13) % 4) * 2, x + 4, gy + 1); g.fillStyle((x / 13) % 2 ? palette.grass : palette.grassDark, 1); g.fillTriangle(x - 2.5, gy + 1, x + ((x / 13) % 3) - 1, gy - 5 - ((x / 13) % 4) * 2, x + 2.5, gy + 1); }
+    for (let x = -80; x < GAME_WIDTH + 100; x += 11) { const k = ((x / 11) % 4 + 4) % 4; g.fillStyle(k % 2 ? palette.grassDark : palette.grass, 1); g.fillEllipse(x, gy - 1 - k, 9 + k, 8 + k); g.fillStyle(palette.grass, 1); g.fillEllipse(x - 1, gy - 2 - k, 5, 5); }
     for (let i = 0; i < 9; i++) { const sx = 40 + i * 110, sy = gy + 70 + (i % 3) * 18; g.fillStyle(palette.outline, 0.9); g.fillEllipse(sx, sy, 16, 10); g.fillStyle(palette.stone, 0.9); g.fillEllipse(sx - 1, sy - 1, 12, 7); }
 
     // pedestal: stone plinth with a gilded trim and a spotlight beam

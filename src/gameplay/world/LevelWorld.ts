@@ -279,7 +279,7 @@ export class LevelWorld {
     g.fillStyle(p.outline, 1); g.fillCircle(-bw / 2 + 8, -bh / 2 + 8, 2.2); g.fillCircle(bw / 2 - 8, -bh / 2 + 8, 2.2); g.fillCircle(-bw / 2 + 8, bh / 2 - 8, 2.2); g.fillCircle(bw / 2 - 8, bh / 2 - 8, 2.2);
     g.restore();
     // a tuft of grass at the base
-    if (p.style === 'organic') { g.fillStyle(p.grassDark, 1); g.fillTriangle(x - bw / 2 + 4, y, x - bw / 2 + 12, y - 12, x - bw / 2 + 18, y); g.fillStyle(p.grass, 1); g.fillTriangle(x + bw / 2 - 20, y, x + bw / 2 - 12, y - 10, x + bw / 2 - 6, y); }
+    if (p.style === 'organic') { g.fillStyle(p.grassDark, 1); g.fillEllipse(x - bw / 2 + 12, y - 4, 16, 10); g.fillStyle(p.grass, 1); g.fillEllipse(x - bw / 2 + 16, y - 6, 10, 8); g.fillEllipse(x + bw / 2 - 12, y - 4, 14, 9); }
     return [g, t];
   }
 

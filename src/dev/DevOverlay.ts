@@ -19,7 +19,7 @@ export class DevOverlay {
     this.text = el('div');
     this.actions = el('div');
     this.root.append(this.text, this.actions);
-    UIRoot.mount(this.root);
+    UIRoot.mountOnStage(this.root);
   }
 
   toggle(): void { this.setVisible(!this.visible); }

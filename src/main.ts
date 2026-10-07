@@ -14,6 +14,8 @@ import { GameScene } from './scenes/GameScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { TitleScene } from './scenes/TitleScene';
 import { el, UIRoot } from './ui/UIRoot';
+import { LayoutManager } from './ui/Layout';
+import { RotatePrompt } from './ui/RotatePrompt';
 
 function supported(): boolean {
   try {
@@ -48,7 +50,9 @@ function boot(): void {
     scene: [BootScene, PreloadScene, TitleScene, GameScene],
   });
   SettingsService.instance.apply();
-  bus.on(Events.SettingsChanged, () => applyRenderScale(game, save.settings.quality));
+  LayoutManager.instance.init(game);
+  void RotatePrompt.instance;
+  bus.on(Events.SettingsChanged, () => { applyRenderScale(game, save.settings.quality); LayoutManager.instance.schedule(); });
   if (!save.persistent) UIRoot.toast('Storage is unavailable in this browser: progress will not be saved.', 5000);
   else if (save.loadWarning) UIRoot.toast(save.loadWarning, 4000);
   const input = InputManager.instance;
@@ -57,7 +61,7 @@ function boot(): void {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen?.();
   });
-  (window as unknown as { __bb: { game: Phaser.Game; input: InputManager } }).__bb = { game, input };
+  (window as unknown as { __bb: { game: Phaser.Game; input: InputManager; layout: LayoutManager } }).__bb = { game, input, layout: LayoutManager.instance };
   if (devFlags.enabled) installTestHooks(game);
 }
 

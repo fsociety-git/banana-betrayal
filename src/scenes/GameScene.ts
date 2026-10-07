@@ -37,6 +37,7 @@ import { LevelIntro } from '../ui/LevelIntro';
 import { PauseMenu } from '../ui/PauseMenu';
 import { downloadResultsCard } from '../results/ResultsCard';
 import { ResultsOverlay } from '../ui/ResultsOverlay';
+import { RotatePrompt } from '../ui/RotatePrompt';
 import { showCredits, SimpleDialog } from '../ui/Overlays';
 import { SettingsMenu } from '../ui/SettingsMenu';
 import { TouchControls } from '../ui/TouchControls';
@@ -104,6 +105,7 @@ export class GameScene extends Phaser.Scene {
   private running = false;
   private finished = false;
   private deathContext: { cause: DeathCause; until: number } | null = null;
+  private rotatePaused = false;
   private captionCursor = new Map<string, number>();
   private cleanups: (() => void)[] = [];
   private audio = AudioEngine.instance;
@@ -212,14 +214,21 @@ export class GameScene extends Phaser.Scene {
     const onMute = (): void => { const m = this.settings.toggleMute(); UIRoot.toast(m ? 'Muted' : 'Sound on', 900); };
     const onScale = (): void => this.cameraCtl.applyZoom();
     const onSettings = (): void => { this.cameraCtl.shakeEnabled = this.settings.screenShake; this.player.setReducedMotion(this.settings.reducedMotion); this.hud.setTimerVisible(this.sceneData.mode === 'replay' || this.settings.settings.showTimer); };
+    const onRotateShown = (): void => { if (!this.finished && !this.pauseMenu.open && !this.results.open && this.scene.isActive()) { this.scene.pause(); InputManager.instance.gameplayEnabled = false; InputManager.instance.releaseAll(); this.rotatePaused = true; } };
+    const onRotateHidden = (): void => { if (this.rotatePaused) { this.rotatePaused = false; if (this.scene.isPaused()) this.scene.resume(); InputManager.instance.gameplayEnabled = true; } };
     input.on('restart', onRestart); input.on('pause', onPause); input.on('menuBack', onBack); input.on('mute', onMute);
     window.addEventListener('blur', onBlur);
     bus.on(Events.RenderScaleChanged, onScale);
     bus.on(Events.SettingsChanged, onSettings);
+    bus.on(Events.RotatePromptShown, onRotateShown);
+    bus.on(Events.RotatePromptHidden, onRotateHidden);
+    // the scene is still CREATING here; pause on the first update tick if the prompt is already up
+    if (RotatePrompt.instance.open) this.time.delayedCall(0, onRotateShown);
     this.cleanups.push(() => {
       input.off('restart', onRestart); input.off('pause', onPause); input.off('menuBack', onBack); input.off('mute', onMute);
       window.removeEventListener('blur', onBlur);
       bus.off(Events.RenderScaleChanged, onScale); bus.off(Events.SettingsChanged, onSettings);
+      bus.off(Events.RotatePromptShown, onRotateShown); bus.off(Events.RotatePromptHidden, onRotateHidden);
     });
 
     // player events

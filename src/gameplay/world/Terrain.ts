@@ -105,10 +105,11 @@ export class Terrain {
         g.fillStyle(0xffffff, 1); for (let i = 0; i < 3; i++) g.fillCircle(px + 7 + i * 13, py + 5, 7);
         g.fillStyle(0xd7e6fb, 1); g.fillRect(px, py + 12, TILE, 3);
       } else if (metal) {
-        // hazard-stripe safety edge
+        // painted safety edge: flat yellow band with soft rivets (no sawtooth, so it never reads as spikes)
         g.fillStyle(p.outline, 1); g.fillRect(px, py, TILE, o);
         g.fillStyle(0xf2c94c, 1); g.fillRect(px, py + o, TILE, 8);
-        g.fillStyle(p.outline, 1); for (let i = 0; i < 3; i++) g.fillTriangle(px + i * 14, py + o + 8, px + i * 14 + 6, py + o, px + i * 14 + 12, py + o + 8);
+        g.fillStyle(0xc79a1f, 1); g.fillRect(px, py + o + 8, TILE, 2);
+        g.fillStyle(p.outline, 0.7); g.fillCircle(px + 10, py + o + 4, 1.8); g.fillCircle(px + TILE - 10, py + o + 4, 1.8);
         g.fillStyle(0xffffff, 0.3); g.fillRect(px, py + o, TILE, 1);
       } else if (gold) {
         // gilded trim
@@ -118,16 +119,16 @@ export class Terrain {
         g.fillStyle(0xc49a1a, 1); g.fillRect(px + (left ? 0 : o), py + o + 7, TILE - (left ? 0 : o) - (right ? 0 : o), 2);
         g.fillStyle(p.outline, 0.9); for (let i = 0; i < 2; i++) g.fillCircle(px + 12 + i * 16, py + 6, 1.6);
       } else {
-        // grass cap with blades rising above the edge and a soft soil transition
+        // grass cap: soft rounded tufts (never sharp, never dark-outlined — spikes own that silhouette)
         g.fillStyle(p.outline, 1); g.fillRect(px + (left ? 0 : 2), py, TILE - (left ? 0 : 2) - (right ? 0 : 2), o);
         g.fillStyle(p.grass, 1); g.fillRect(px + (left ? 0 : o), py + o, TILE - (left ? 0 : o) - (right ? 0 : o), 8);
         g.fillStyle(p.grassDark, 1); g.fillRect(px + (left ? 0 : o), py + 9, TILE - (left ? 0 : o) - (right ? 0 : o), 4);
         for (let i = 0; i < 4; i++) { const bx = px + 5 + i * 10 + rng.between(-1, 1); g.fillStyle(p.grassDark, 0.9); g.fillCircle(bx, py + 13, 2.5); }
-        // blades poking above the outline
-        for (let i = 0; i < 3; i++) {
-          const bx = px + 6 + i * 13 + rng.between(-2, 2), h = rng.between(5, 11), lean = rng.between(-3, 3);
-          g.fillStyle(p.outline, 1); g.fillTriangle(bx - 4, py + 1, bx + lean, py - h - 1, bx + 4, py + 1);
-          g.fillStyle(i % 2 ? p.grassDark : p.grass, 1); g.fillTriangle(bx - 2.5, py + 1, bx + lean, py - h + 1, bx + 2.5, py + 1);
+        // irregular tufts peeking above the edge: overlapping rounded blobs in two greens, low contrast
+        for (let i = 0; i < 4; i++) {
+          const bx = px + 5 + i * 10 + rng.between(-2, 2), r = rng.between(3, 5), lift = rng.between(1, 4);
+          g.fillStyle(i % 2 ? p.grassDark : p.grass, 1); g.fillEllipse(bx, py + 1 - lift, r * 2.2, r * 2);
+          g.fillStyle(p.grass, 1); g.fillEllipse(bx - 1, py - lift, r * 1.4, r * 1.3);
         }
         g.fillStyle(0xffffff, 0.3); g.fillRect(px + (left ? 0 : o), py + o, TILE - (left ? 0 : o) - (right ? 0 : o), 2);
       }

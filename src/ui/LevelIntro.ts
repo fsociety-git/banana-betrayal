@@ -13,7 +13,7 @@ export class LevelIntro {
     if (index !== null) card.append(el('div', 'bb-intro-kicker', `Level ${index}`));
     card.append(el('h2', 'bb-intro-title', title), el('p', 'bb-intro-sub', subtitle));
     wrap.append(card);
-    this.node = UIRoot.mount(wrap);
+    this.node = UIRoot.mountOnStage(wrap);
     this.timer = window.setTimeout(() => { wrap.classList.add('out'); window.setTimeout(() => this.hide(), 450); }, ms);
   }
 

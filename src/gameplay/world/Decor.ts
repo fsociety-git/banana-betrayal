@@ -78,7 +78,7 @@ function drawDecor(g: Phaser.GameObjects.Graphics, kind: string, p: ThemePalette
       g.fillStyle(p.stone, 1); g.fillEllipse(42, 34, 72, 24); g.fillCircle(30, 22, 15); g.fillCircle(56, 26, 11);
       g.fillStyle(0x000000, 0.14); g.fillEllipse(48, 40, 56, 10);
       g.fillStyle(0xffffff, 0.35); g.fillEllipse(26, 18, 14, 6);
-      g.fillStyle(p.grassDark, 1); g.fillTriangle(8, 48, 14, 36, 20, 48); g.fillTriangle(66, 48, 72, 38, 78, 48);
+      g.fillStyle(p.grassDark, 1); g.fillEllipse(14, 44, 16, 10); g.fillEllipse(72, 44, 14, 9); g.fillStyle(p.grass, 1); g.fillEllipse(12, 42, 9, 7);
       return { w, h };
     }
     case 'reeds': {

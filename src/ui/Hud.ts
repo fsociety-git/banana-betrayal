@@ -31,7 +31,7 @@ export class Hud {
     pause.setAttribute('aria-label', 'Pause (Escape)');
     pause.addEventListener('click', () => this.onPause());
     this.root.append(stats, pause);
-    UIRoot.mount(this.root);
+    UIRoot.mountOnStage(this.root);
   }
 
   setBananas(n: number, total?: number): void {

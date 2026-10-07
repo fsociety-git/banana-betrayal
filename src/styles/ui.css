@@ -192,3 +192,40 @@ html, body {
 .bb-credits-list { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; }
 .bb-credits-list dt { font-weight: 800; opacity: 0.8; }
 .bb-credits-list dd { margin: 0; }
+
+/* ---------- Stage (overlays aligned to the canvas) ---------- */
+#app { display: block; }
+#game { display: block; position: relative; }
+.bb-stage { position: absolute; left: var(--stage-x, 0px); top: var(--stage-y, 0px); width: var(--stage-w, 100%); height: var(--stage-h, 100%); pointer-events: none; }
+.bb-stage > * { pointer-events: auto; }
+.bb-hud {
+  top: max(0.6rem, calc(var(--safe-top) - var(--stage-y, 0px) + 0.6rem));
+  left: max(0.75rem, calc(var(--safe-left) - var(--stage-x, 0px) + 0.75rem));
+  right: max(0.75rem, calc(var(--safe-right) - (var(--stage-x, 0px)) + 0.75rem));
+}
+.bb-dev { top: 3.6rem; left: 0.75rem; }
+.bb-caption-wrap { bottom: 26%; }
+.bb-intro { top: 14%; }
+/* portrait strip: compact HUD, captions just under the strip, intro card above it */
+:root[data-portrait-narrow="1"] .bb-chip { font-size: 0.82rem; padding: 0.2em 0.6em; min-height: 1.9em; }
+:root[data-portrait-narrow="1"] .bb-iconbtn { width: 2.1rem; height: 2.1rem; font-size: 0.9rem; }
+:root[data-portrait-narrow="1"] .bb-hud { top: calc(-2.6rem); }
+:root[data-portrait-narrow="1"] .bb-caption-wrap { bottom: auto; top: calc(100% + 0.5rem); }
+:root[data-portrait-narrow="1"] .bb-caption { font-size: 1rem; }
+:root[data-portrait-narrow="1"] .bb-intro { top: auto; bottom: calc(100% + 3.2rem); }
+:root[data-portrait-narrow="1"] .bb-intro-title { font-size: 1.8rem; }
+:root[data-portrait-narrow="1"] .bb-intro-sub { font-size: 0.95rem; }
+/* touch pads: safe-area corners by default; into letterbox margins when wide; under the strip in portrait */
+.bb-touch .pad { bottom: calc(1.1rem + var(--safe-bottom)); }
+.bb-touch.under-strip .pad { bottom: var(--pad-bottom, calc(1.1rem + var(--safe-bottom))); }
+.bb-touch button { width: clamp(56px, 13vmin, 92px); height: clamp(56px, 13vmin, 92px); font-size: 1.2rem; }
+.bb-touch button.jump { width: clamp(68px, 16vmin, 110px); height: clamp(68px, 16vmin, 110px); }
+.bb-touch.in-margins button { opacity: 0.95; }
+/* rotate prompt */
+.bb-rotate .bb-panel { align-items: center; text-align: center; max-width: 22rem; }
+.bb-phone { width: 42px; height: 72px; border: 4px solid #2a1d12; border-radius: 10px; background: #fff8e7; position: relative; animation: bb-rotate-phone 2.4s ease-in-out infinite; }
+.bb-phone-screen { position: absolute; inset: 7px 5px 9px 5px; background: #3aa0d8; border-radius: 3px; }
+.bb-phone::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 10px; height: 3px; margin-left: -5px; border-radius: 2px; background: #2a1d12; }
+@keyframes bb-rotate-phone { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+@media (prefers-reduced-motion: reduce) { .bb-phone { animation: none; transform: rotate(-90deg); } }
+:root[data-reduced-motion="1"] .bb-phone { animation: none; transform: rotate(-90deg); }

@@ -29,6 +29,20 @@ export class UIRoot {
     return node;
   }
 
+  private static _stage: HTMLElement | null = null;
+  /** Overlay container that always matches the canvas rectangle (HUD, captions, intro cards). */
+  static get stage(): HTMLElement {
+    if (!this._stage) {
+      this._stage = el('div', 'bb-stage');
+      this.root.appendChild(this._stage);
+    }
+    return this._stage;
+  }
+  static mountOnStage(node: HTMLElement): HTMLElement {
+    this.stage.appendChild(node);
+    return node;
+  }
+
   private static toastTimer: number | null = null;
   static toast(text: string, ms = 2200): void {
     this.root.querySelector('.bb-toast')?.remove();

@@ -8,7 +8,7 @@ export class CaptionLayer {
   constructor() {
     this.wrap = el('div', 'bb-caption-wrap');
     this.wrap.setAttribute('aria-live', 'polite');
-    UIRoot.mount(this.wrap);
+    UIRoot.mountOnStage(this.wrap);
   }
 
   show(text: string, ms = 1400): void {

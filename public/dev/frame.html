@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Viewport harness</title>
+<style>
+  body { margin: 0; background: #222; color: #ddd; font: 13px system-ui, sans-serif; }
+  #bar { padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 4px 10px; }
+  #wrap { padding: 12px; }
+  iframe { border: 2px solid #888; background: #000; display: block; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong>Viewport harness</strong>
+  <button data-size="390x844">390×844</button>
+  <button data-size="844x390">844×390</button>
+  <button data-size="1280x720">1280×720</button>
+  <span id="label"></span>
+</div>
+<div id="wrap"><iframe id="frame" allow="fullscreen" title="Banana Betrayal"></iframe></div>
+<script>
+  const frame = document.getElementById('frame');
+  const label = document.getElementById('label');
+  const params = new URLSearchParams(location.search);
+  const src = params.get('src') || '/?nopause=1';
+  function setSize(w, h) { frame.style.width = w + 'px'; frame.style.height = h + 'px'; label.textContent = w + ' × ' + h; }
+  window.setFrame = setSize;
+  document.querySelectorAll('button[data-size]').forEach((b) => b.addEventListener('click', () => { const [w, h] = b.dataset.size.split('x').map(Number); setSize(w, h); }));
+  const start = (params.get('size') || '390x844').split('x').map(Number);
+  setSize(start[0], start[1]);
+  frame.src = src;
+</script>
+</body>
+</html>
