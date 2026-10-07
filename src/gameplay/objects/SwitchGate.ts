@@ -15,9 +15,10 @@ export class Gate implements Resettable<{ open: boolean }> {
   private palette: ThemePalette;
   private tween: Phaser.Tweens.Tween | null = null;
   private slide = 0; // 0 closed, 1 open
+  private sceneRef: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, id: string, x: number, y: number, wTiles: number, hTiles: number, open: boolean, palette: ThemePalette) {
-    this.id = id; this.x = x; this.y = y; this.w = wTiles * TILE; this.h = hTiles * TILE; this.palette = palette; this.initiallyOpen = open; this.open = open;
+    this.id = id; this.x = x; this.y = y; this.w = wTiles * TILE; this.h = hTiles * TILE; this.palette = palette; this.initiallyOpen = open; this.open = open; this.sceneRef = scene;
     this.hit = scene.add.rectangle(x + this.w / 2, y + this.h / 2, this.w, this.h, 0xffffff, 0).setVisible(false);
     scene.physics.add.existing(this.hit, true);
     this.body = this.hit.body as Phaser.Physics.Arcade.StaticBody;
@@ -47,7 +48,7 @@ export class Gate implements Resettable<{ open: boolean }> {
     if (!animate) { this.slide = open ? 1 : 0; this.draw(); return; }
     this.tween = this.scene().tweens.add({ targets: this, slide: open ? 1 : 0, duration: 350, ease: 'Quad.easeInOut', onUpdate: () => this.draw() });
   }
-  private scene(): Phaser.Scene { return this.gfx.scene; }
+  private scene(): Phaser.Scene { return this.sceneRef; }
 
   snapshot(): { open: boolean } { return { open: this.open }; }
   restore(s: { open: boolean }): void { this.setOpen(s.open, false); }

@@ -11,6 +11,8 @@ import type { Resettable } from '../world/SnapshotRegistry';
 export class FleeingBanana implements Resettable<{ hopIndex: number; collected: boolean; joked: boolean }> {
   readonly banana: Banana;
   readonly id: string;
+  /** Kept separately: during scene shutdown Phaser destroys display objects (clearing their .scene) before our cleanup runs. */
+  private scene: Phaser.Scene;
   private path: Point[];
   private hopIndex = 0;
   private hopping = false;
@@ -23,6 +25,7 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
 
   constructor(scene: Phaser.Scene, id: string, x: number, y: number, pathTiles: Point[]) {
     this.id = id;
+    this.scene = scene;
     this.banana = new Banana(scene, x, y, id);
     this.startX = x; this.startY = y;
     this.path = pathTiles.map((p) => ({ x: p.x * TILE, y: p.y * TILE }));
@@ -43,7 +46,7 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
     const tx = this.banana.x + step.x, ty = this.banana.y + step.y;
     this.hopping = true;
     this.banana.body.enable = false;
-    const scene = this.banana.scene;
+    const scene = this.scene;
     const fromY = this.banana.y;
     scene.tweens.add({
       targets: this.banana, x: tx, duration: 420, ease: 'Quad.easeOut',
@@ -65,7 +68,7 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
   }
 
   restore(s: { hopIndex: number; collected: boolean; joked: boolean }): void {
-    this.banana.scene.tweens.killTweensOf(this.banana);
+    this.scene.tweens.killTweensOf(this.banana);
     this.hopping = false;
     this.hopIndex = s.hopIndex;
     this.joked = s.joked;
@@ -77,5 +80,5 @@ export class FleeingBanana implements Resettable<{ hopIndex: number; collected: 
     this.banana.restore({ collected: s.collected });
   }
 
-  destroy(): void { this.banana.scene.tweens.killTweensOf(this.banana); this.banana.destroy(); }
+  destroy(): void { this.scene.tweens.killTweensOf(this.banana); if (this.banana.scene) this.banana.destroy(); }
 }
