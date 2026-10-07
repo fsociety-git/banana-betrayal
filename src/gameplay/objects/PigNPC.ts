@@ -41,6 +41,14 @@ export class PigNPC implements Speaker {
       g.lineStyle(3, 0x2a1d12, 1); g.strokeCircle(x + 26 * f, y - 148, 46);
       g.fillStyle(0x2a1d12, 1); g.fillRect(x + 26 * f - 48, y - 150, 96, 4);
     } else if (pose === 'manager') {
+      // behind glass, wearing an unnecessary badge
+      g.fillStyle(0x9fe3ff, 0.22); g.fillRoundedRect(x - 60, y - 130, 120, 134, 8);
+      g.lineStyle(5, 0x2a1d12, 1); g.strokeRoundedRect(x - 60, y - 130, 120, 134, 8);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(x - 50, y - 120, 10, 100);
+      g.fillStyle(0x2a1d12, 1); g.fillRoundedRect(x - 40, y - 150, 80, 22, 4); g.fillStyle(0xf7c948, 1); g.fillRoundedRect(x - 37, y - 147, 74, 16, 3);
+      g.fillStyle(0x2a1d12, 1); g.fillRect(x - 28, y - 142, 56, 3); g.fillRect(x - 20, y - 137, 40, 2);
+      this.rig.setDepth(DEPTH.npc + 1);
+      g.setDepth(DEPTH.npc + 2);
       g.fillStyle(0x2a1d12, 1); g.fillRoundedRect(x + 10 * f - 14, y - 62, 28, 18, 3);
       g.fillStyle(0xf7c948, 1); g.fillRoundedRect(x + 10 * f - 12, y - 60, 24, 14, 2);
       g.fillStyle(0x2a1d12, 1); g.fillRect(x + 10 * f - 8, y - 56, 16, 2); g.fillRect(x + 10 * f - 8, y - 51, 10, 2);
@@ -57,7 +65,10 @@ export class PigNPC implements Speaker {
       g.fillStyle(0x2a1d12, 1); g.fillRoundedRect(x - 60, y - 196, 120, 40, 6);
       g.fillStyle(0xf7c948, 1); g.fillRoundedRect(x - 56, y - 192, 112, 32, 5);
       const t = this.scene.add.text(x, y - 176, 'HELP DESK', { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '16px', color: '#2a1d12', fontStyle: 'bold' }).setOrigin(0.5).setDepth(DEPTH.npc + 2);
+      // the shack sits behind the pig so he is visible in the doorway
+      g.setDepth(DEPTH.npc - 1);
       this.rig.setDepth(DEPTH.npc + 1);
+      this.rig.shadow.setDepth(DEPTH.npc);
       this.props = g;
       (this.props as unknown as { extraText: Phaser.GameObjects.Text }).extraText = t;
       return;

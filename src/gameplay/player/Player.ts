@@ -47,6 +47,11 @@ export class Player {
   private spawnPoint = { x: 0, y: 0 };
   private groundProbe = { y: null as number | null };
   controlsEnabled = true;
+  /** Horizontal push applied this frame by the world (wind zones). Reset every update. */
+  externalVx = 0;
+  private lastExternalVx = 0;
+  /** Set true for one frame when a solid presses the player into the ground or a wall. */
+  crushed = false;
   /** Assist mode and similar may scale hazards, never the controls. */
 
   constructor(scene: Phaser.Scene, x: number, y: number, character: keyof typeof CHARACTERS = 'monkey') {
@@ -80,6 +85,7 @@ export class Player {
     this.prevVy = 0;
     this.ride = null;
     this.stickyRide = null;
+    this.externalVx = 0; this.lastExternalVx = 0; this.crushed = false;
   }
 
   update(dt: number): void {
@@ -115,7 +121,7 @@ export class Player {
     // Horizontal movement
     const axis = this.controlsEnabled ? input.axis : 0;
     const target = axis * T.runSpeed;
-    let vx = vx0;
+    let vx = vx0 - this.lastExternalVx;
     if (axis !== 0) {
       const accel = grounded ? T.groundAccel : T.airAccel;
       // turning around is snappier than accelerating from rest
@@ -128,7 +134,12 @@ export class Player {
       vx = Math.abs(vx) <= step ? 0 : vx - Math.sign(vx) * step;
     }
     // Carried by a moving platform: ride delta is applied positionally, so velocity stays player-relative.
-    this.body.setVelocityX(vx);
+    // Wind and belts add an external component that does not fight the player's own acceleration curve.
+    this.body.setVelocityX(vx + this.externalVx);
+    this.lastExternalVx = this.externalVx;
+    this.externalVx = 0;
+    // Crushed: something solid pressing from above while standing, or from both sides.
+    this.crushed = (this.body.touching.up && (this.body.blocked.down || this.body.touching.down)) || (this.body.blocked.left && this.body.blocked.right);
 
     // Jumping: coyote time + buffered input
     const canCoyote = now - this.lastGroundedAt <= T.coyoteMs && !this.jumpedSinceGround;

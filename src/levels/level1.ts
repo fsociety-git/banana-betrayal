@@ -45,7 +45,6 @@ b.block(141, G - 3, 2, 1);
 b.pit(140, 143, G, '~', 2);
 b.checkpoint(147, G - 1);
 // --- Section 5: finish alcove where the flag can be cornered (cols 148-169)
-b.block(152, G - 4, 1, 4);             // tall post the flag runs past
 b.flag(156, G - 1);
 b.fill(166, 169, 0, G - 1, '#');       // wall: the flag's dead end
 b.bananas(160, G - 2, 3);
@@ -77,7 +76,6 @@ export const level1: LevelData = {
     { type: 'sign', x: 150, y: G - 1, text: 'l1-flag' },
     { type: 'fleeing-flag', x: 153, y: G - 5, w: 4, h: 5, id: 'flagflee', fleeTo: { x: 164, y: G - 1 } },
     { type: 'pig', x: 161, y: G - 1, id: 'pig-end', flip: true },
-    { type: 'dialogue-trigger', x: 158, y: G - 5, w: 4, h: 5, id: 'd-end', line: 'l1-flag-caught', once: true },
     { type: 'decor', x: 30, y: G - 1, kind: 'bush' }, { type: 'decor', x: 46, y: G - 1, kind: 'flowers' },
     { type: 'decor', x: 68, y: G - 1, kind: 'palm' }, { type: 'decor', x: 93, y: G - 1, kind: 'bush' },
     { type: 'decor', x: 112, y: G - 1, kind: 'palm' }, { type: 'decor', x: 127, y: G - 1, kind: 'flowers' },

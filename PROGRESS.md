@@ -21,3 +21,8 @@
 - Procedural audio engine (SFX recipes + 8 sequenced tracks) started on first gesture.
 - Title scene with menu, settings dialog, level select, credits, first-run card, character picker.
 - Phaser 4 gotcha: Containers cannot carry static bodies (StaticBody.updateFromGameObject needs getTopLeft) → static triggers use Zones/Rectangles.
+
+## Milestone C — trap architecture and all five levels
+- LevelWorld factory owns all data-driven objects: moving platforms, sinking platforms, bubbles, croc platforms, conveyors, crushers, switches/gates, wind zones, crumble + doubting clouds, falling objects (coconut/anvil/crates with ground shadows), banana machine (+ honest processing fee and dispensed peel), hazard rects (spikes/saw/electric/peel), blow-away signs, pigs with poses.
+- Levels 1–5 authored with the builder; all validate. Level 5 ends in a boss arena (boss in Milestone D).
+- Death attribution: environmental deaths credit the trap that caused them (bridge/cloud/sinking/wind); direct hazards keep their own captions.

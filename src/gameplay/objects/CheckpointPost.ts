@@ -58,6 +58,19 @@ export class CheckpointPost extends Phaser.GameObjects.Container {
     this.scene.tweens.add({ targets: this, scaleX: 1.12, scaleY: 0.92, duration: 100, yoyo: true, ease: 'Quad.easeOut' });
   }
 
+  /** Level 2 gag: the post prints a tiny receipt for your checkpoint. */
+  printReceipt(): void {
+    const paper = this.scene.add.graphics().setDepth(DEPTH.objects + 3);
+    const lines = ['RECEIPT', 'Checkpoint x1', 'Hope ...... 0.00', 'TOTAL ..... 0.00'];
+    const t = this.scene.add.text(0, 0, lines.join('\n'), { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '8px', color: '#2a1d12', lineSpacing: 1 }).setDepth(DEPTH.objects + 4);
+    const w = 66, h = 44;
+    const c = this.scene.add.container(this.footX + 6, this.footY - 52, [paper, t]).setDepth(DEPTH.objects + 3);
+    paper.fillStyle(0x2a1d12, 1); paper.fillRect(-2, -2, w + 4, h + 4); paper.fillStyle(0xfff8e7, 1); paper.fillRect(0, 0, w, h);
+    t.setPosition(4, 3);
+    c.setScale(1, 0.05);
+    this.scene.tweens.add({ targets: c, scaleY: 1, duration: 700, ease: 'Linear', onComplete: () => this.scene.tweens.add({ targets: c, y: c.y + 30, alpha: 0, delay: 1400, duration: 600, onComplete: () => c.destroy() }) });
+  }
+
   /** Visual-only reset (used when restarting the whole level). */
   deactivate(): void {
     this.reached = false;

@@ -23,21 +23,40 @@ export class Coconut implements Resettable<{ trap: TrapSnapshot; landed: boolean
   onLand: ((x: number, y: number) => void) | null = null;
   onWarn: (() => void) | null = null;
 
-  constructor(scene: Phaser.Scene, id: string, tileX: number, tileY: number, triggerWidthTiles: number, groundY: number) {
+  readonly kind: 'coconut' | 'anvil' | 'crate' | 'banana-crate';
+  readonly shadow: Phaser.GameObjects.Ellipse;
+  private groundY: number;
+
+  constructor(scene: Phaser.Scene, id: string, tileX: number, tileY: number, triggerWidthTiles: number, groundY: number, kind: 'coconut' | 'anvil' | 'crate' | 'banana-crate' = 'coconut') {
     this.scene = scene;
     this.id = id;
+    this.kind = kind;
+    this.groundY = groundY;
     this.homeX = tileX * TILE + TILE / 2;
     this.homeY = tileY * TILE + TILE / 2;
     const c = scene.add.container(this.homeX, this.homeY);
     const g = scene.add.graphics();
-    g.fillStyle(0x2c1a0e, 1); g.fillCircle(0, 0, 17);
-    g.fillStyle(0x6b4a2b, 1); g.fillCircle(0, 0, 14);
-    g.fillStyle(0x8a6540, 1); g.fillCircle(-4, -4, 6);
-    g.fillStyle(0x2c1a0e, 1); g.fillCircle(-4, 3, 2); g.fillCircle(2, 5, 2); g.fillCircle(-1, -3, 2);
-    c.add(g).setSize(34, 34).setDepth(DEPTH.objects + 2);
+    if (kind === 'coconut') {
+      g.fillStyle(0x2c1a0e, 1); g.fillCircle(0, 0, 17);
+      g.fillStyle(0x6b4a2b, 1); g.fillCircle(0, 0, 14);
+      g.fillStyle(0x8a6540, 1); g.fillCircle(-4, -4, 6);
+      g.fillStyle(0x2c1a0e, 1); g.fillCircle(-4, 3, 2); g.fillCircle(2, 5, 2); g.fillCircle(-1, -3, 2);
+    } else if (kind === 'anvil') {
+      g.fillStyle(0x1f2026, 1); g.fillRoundedRect(-22, -6, 44, 22, 4); g.fillRect(-10, -16, 20, 12); g.fillRoundedRect(-30, -18, 60, 10, 4);
+      g.fillStyle(0x6b6f7a, 1); g.fillRoundedRect(-19, -3, 38, 16, 3); g.fillRoundedRect(-27, -16, 54, 6, 3);
+      g.fillStyle(0xffffff, 0.3); g.fillRect(-24, -15, 30, 2);
+    } else {
+      g.fillStyle(0x2c1a0e, 1); g.fillRect(-20, -20, 40, 40);
+      g.fillStyle(kind === 'banana-crate' ? 0xf7c948 : 0xd59a55, 1); g.fillRect(-17, -17, 34, 34);
+      g.fillStyle(0x2c1a0e, 0.8); g.fillRect(-17, -2, 34, 3); g.fillRect(-2, -17, 3, 34);
+      if (kind === 'banana-crate') { g.fillStyle(0x2c1a0e, 1); g.fillEllipse(0, 0, 18, 8); g.fillStyle(0xffe58a, 1); g.fillEllipse(0, -1, 12, 4); }
+    }
+    c.add(g).setSize(40, 40).setDepth(DEPTH.objects + 2);
     scene.physics.add.existing(c);
     this.body = c.body as Phaser.Physics.Arcade.Body;
-    this.body.setCircle(16, -16, -16);
+    if (kind === 'coconut') this.body.setCircle(16, -16, -16); else this.body.setSize(40, 36).setOffset(-20, -18);
+    // warning shadow on the ground below (grows as the drop approaches)
+    this.shadow = scene.add.ellipse(this.homeX, groundY - 3, 10, 5, 0x000000, 0).setDepth(DEPTH.objects + 1);
     this.body.setAllowGravity(false);
     this.body.moves = false;
     this.sprite = c;
@@ -81,7 +100,18 @@ export class Coconut implements Resettable<{ trap: TrapSnapshot; landed: boolean
     this.scene.tweens.add({ targets: this.sprite, scaleX: 1.25, scaleY: 0.75, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
   }
 
-  update(dtMs: number): void { this.machine.update(dtMs); }
+  update(dtMs: number): void {
+    this.machine.update(dtMs);
+    if (this.machine.state === 'warning') {
+      const k = this.machine.progress();
+      this.shadow.setAlpha(0.15 + k * 0.35).setSize(16 + k * 36, 6 + k * 10);
+    } else if (this.machine.state === 'active' && !this.landed) {
+      const k = Phaser.Math.Clamp((this.sprite.y - this.homeY) / Math.max(1, this.groundY - this.homeY), 0, 1);
+      this.shadow.setAlpha(0.45).setSize(52 - k * 10, 16 - k * 6);
+    } else {
+      this.shadow.setAlpha(0);
+    }
+  }
 
   snapshot(): { trap: TrapSnapshot; landed: boolean } { return { trap: this.machine.snapshot(), landed: this.landed }; }
 
@@ -107,6 +137,7 @@ export class Coconut implements Resettable<{ trap: TrapSnapshot; landed: boolean
     this.wobble?.stop();
     this.scene.tweens.killTweensOf(this.sprite);
     this.alert.destroy();
+    this.shadow.destroy();
     this.sprite.destroy();
     this.triggerZone.destroy();
   }
