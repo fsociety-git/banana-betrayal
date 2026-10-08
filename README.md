@@ -131,7 +131,7 @@ and restore exactly; all text is in `src/content/script.ts`.
 ## Release checklist
 
 A human playtest checklist (sound, phone controls, the first traps) is in [`docs/playtest-checklist.md`](docs/playtest-checklist.md).
-A viewport harness for exact-size layout checks lives at `/dev/frame.html?size=390x844&src=/%3Flevel%3Dlevel1` in dev builds.
+A viewport harness for exact-size layout checks is served by the dev server at `/dev/frame.html?size=390x844&src=/%3Flevel%3Dlevel1` (not part of the published build).
 
 ## Known limitations
 
@@ -144,30 +144,26 @@ A viewport harness for exact-size layout checks lives at `/dev/frame.html?size=3
 
 ## Testing
 
-- `npm test` runs 36 Vitest unit tests: level parser and validator (every shipped level), save schema sanitising and
-  v0→v1 migration, record comparison, completion/unlock rules, trap state machine timing and snapshots, the
-  snapshot registry, level hashing for ghost compatibility, and content integrity (≥30 captions, every dialogue
-  key referenced by a level exists).
-- Browser playtests were driven through the dev-only hooks (`window.__bbTest`) in Chrome: movement tuning
-  (jump heights, buffering, coyote), moving-platform riding, one-way planks, every trap type, checkpoint
-  restore (including banana rollback), death captions by cause, the full boss fight and ending, pause/settings/
-  quit, level select and replay mode, the results overlay and card download, the first-run card, the production
-  build served from a `/banana-betrayal/` sub-directory, and portrait/landscape layouts with touch controls.
+- `npm test` runs 65 Vitest unit tests: level parser, validator and checkpoint ordering (every shipped level), save
+  schema sanitising and migrations, achievements, records and unlock rules, trap state machine timing and snapshots,
+  the snapshot registry, level hashing, forklift geometry, crush rules, bonk timing, dialogue scheduling, encounter
+  state snapshots, and content integrity (names, banned wording, every line and sign key referenced by code).
+- Browser checks were driven through dev-only hooks (`window.__bbTest`, dev builds only) with deterministic frame
+  stepping, plus real-time checks of the production bundle served from a `/banana-betrayal/` sub-directory: menus,
+  pause, settings, results, replay, credits, every trap, checkpoint restore, all encounters, a complete boss fight
+  with ordinary inputs, every ending choice, and 1280×720 / 844×390 / 390×844 layouts with touch pads.
+- Not verified by the developers' tooling: audio quality by ear, physical phones or tablets (touch pads were exercised
+  with synthetic pointers only), safe-area behaviour on notched devices, gamepads, and a complete human
+  playthrough of the campaign. `docs/playtest-checklist.md` lists those checks for a human tester.
 - Performance on the development machine (Apple Silicon MacBook, 120 Hz display): ~7 ms average frame time in
   the factory level at the 120 fps cap; simulated CPU cost 2.7–4.9 ms per frame in the heaviest levels.
 
 ## Deployment
 
-The repository is ready for GitHub Pages: `vite.config.ts` uses a relative base so the build works from a
-repository sub-directory, and `.github/workflows/deploy.yml` builds, tests and publishes `dist/` on every push to
-`main`. Remaining steps for the owner:
-
-```bash
-gh repo create banana-betrayal --public --source=. --remote=origin --push
-# then in the repository settings → Pages → Source: "GitHub Actions"
-```
-
-After the first workflow run the game is served at `https://<user>.github.io/banana-betrayal/`.
+`.github/workflows/deploy.yml` builds on every push to `main` (Node 22, `npm ci`, tests, type check, production
+build) and publishes `dist/` with GitHub Actions to GitHub Pages. `vite.config.ts` uses a relative base, so the
+build works from the repository sub-directory. Repository settings → Pages → Source must be "GitHub Actions".
+Development switches (`?level=`, `?dev=1`, the viewport harness) exist only in `vite dev`, never on the public site.
 
 ## Asset checklist (optional, improves animation)
 
