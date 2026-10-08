@@ -2,6 +2,9 @@
 
 *Makad & Dukkar: He Started It.*
 
+**▶ Play it in your browser: [fsociety-git.github.io/banana-betrayal](https://fsociety-git.github.io/banana-betrayal/)**
+(desktop keyboard, or a phone in landscape with the on-screen buttons). Source code: [github.com/fsociety-git/banana-betrayal](https://github.com/fsociety-git/banana-betrayal).
+
 A comedy 2D platformer for the browser. Makad the monkey wants the legendary golden banana; Dukkar the pig, self-appointed
 Chief of Mischief, claims to know the way. Every helpful suggestion makes the journey worse, and Makad gets steadily better at
 making Dukkar regret it. Built with Phaser 4, TypeScript and Vite; ships as a static site.
