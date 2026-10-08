@@ -36,6 +36,16 @@ Automated checks cover physics, saves, level data and layout geometry. These ite
 - [ ] Level 2 help desk: Complain → pick a complaint with 1/2/3 or tap → printout → REFUND stamp → banana on his head; the moustache falls off when bonked.
 - [ ] No Dukkar line appears while you are mid-jump over a hazard.
 
+## Checkpoints and the boss (Levels 4–5)
+- [ ] Level 4: after the climb, the post on the high shelf flashes and confetti plays when you touch it; dying afterwards puts you back on the shelf, not on the ground post before the climb.
+- [ ] Level 4: walking back to an earlier post never moves your respawn backwards.
+- [ ] Boss: jumping over a charge is survivable; touching the moving forklift is not; a crate landing on you is not.
+- [ ] Boss: landing on the hood of a stunned forklift removes exactly one health point, bounces you up, and you can move away freely; it never kills you on the way up or on the bounce down.
+- [ ] Boss: walking into or jumping beside a stunned forklift at either wall does nothing worse than a bump.
+- [ ] Boss: dying restarts the fight from the checkpoint outside the arena with the forklift back in its corner.
+- [ ] Level 3 chase: every line Dukkar says while running ahead stays readable on screen, with the bubble's tail pointing his way.
+- [ ] Ending: Dukkar climbs out of the forklift (the seat is empty afterwards) and stops a clear step away from Makad, facing him, whichever wall you are near.
+
 ## Everything else
 - [ ] Completing Level 5: phase lines, bolt-ons falling off, the emergency light; after the win a bonk flips DUKKAR WINS to MAKAD WINS and the footnote can be removed; the plastic reveal, the handover, the three-choice moment and "Truce lasted 4 seconds." read clearly; the results card shows one comedy line; Dukkar is selectable afterwards.
 - [ ] "Download results card" saves a PNG that looks right.

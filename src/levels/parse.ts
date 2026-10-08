@@ -1,4 +1,5 @@
 import { TILE } from '../core/constants';
+import { orderCheckpoints } from './checkpointOrder';
 import type { LevelData, ParsedLevel, Point, Rect } from './types';
 import { TILE_LEGEND } from './types';
 
@@ -44,18 +45,20 @@ export function parseLevel(data: LevelData, tile = TILE): ParsedLevel {
       // Entities stand on the floor of their cell.
       const foot = { x: x * tile + tile / 2, y: (y + 1) * tile };
       if (v === 'spawn') spawn = foot;
-      else if (v === 'checkpoint') checkpoints.push({ ...foot, id: `cp${checkpoints.length + 1}`, index: checkpoints.length });
+      else if (v === 'checkpoint') checkpoints.push({ ...foot, id: '', index: 0 });
       else if (v === 'banana') bananas.push(cellCenter(x, y, tile));
       else if (v === 'flag') flag = foot;
     }
   }
+  // ids/indices follow route progression (ascending x), not grid scan order
+  const ordered = orderCheckpoints(checkpoints).map((c, index) => ({ ...c, id: `cp${index + 1}`, index }));
   return {
     data, cols, rows, widthPx: cols * tile, heightPx: rows * tile, grid,
     solids: mergeCells(grid, (v) => v === 'solid', tile),
     oneWays: mergeCells(grid, (v) => v === 'oneway', tile),
     spikes: mergeCells(grid, (v) => v === 'spikes', tile),
     water: mergeCells(grid, (v) => v === 'water', tile),
-    spawn, checkpoints, bananas, flag,
+    spawn, checkpoints: ordered, bananas, flag,
   };
 }
 

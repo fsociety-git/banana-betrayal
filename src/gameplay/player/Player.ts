@@ -4,6 +4,7 @@ import { PLAYER_TUNING as T } from '../../core/constants';
 import { InputManager } from '../../core/input/InputManager';
 import { CharacterRig } from './CharacterRig';
 import { BonkController, bonkHitBox, type Bounds } from '../interact/Bonk';
+import { isCrushed } from './crush';
 
 export type PlayerState = 'grounded' | 'rising' | 'falling' | 'hurt' | 'dead' | 'respawning';
 
@@ -77,7 +78,21 @@ export class Player {
   /** Feet position (bottom centre of the collision body). */
   get x(): number { return this.body.center.x; }
   get feetY(): number { return this.body.bottom; }
-  get grounded(): boolean { return this.body.blocked.down || this.body.touching.down || this.riding; }
+  get grounded(): boolean { return this.body.blocked.down || this.riding || (this.body.touching.down && this.restingOnSurface()); }
+
+  /**
+   * `touching.down` is also raised by overlap-only zones the body is falling through (triggers, the forklift hood),
+   * which used to grant a mid-air jump. Only count it when something solid actually sits under the feet.
+   */
+  private restingOnSurface(): boolean {
+    const b = this.body;
+    const hits = this.scene.physics.overlapRect(b.left + 2, b.bottom - 2, Math.max(1, b.width - 4), 4, true, true) as (Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody)[];
+    for (const o of hits) {
+      if (o === b || !o.enable || o.gameObject instanceof Phaser.GameObjects.Zone) continue;
+      if (Math.abs(o.top - b.bottom) <= 2) return true;
+    }
+    return false;
+  }
   /** True while standing on a moving platform. */
   get riding(): boolean { return this.stickyRide !== null; }
   get alive(): boolean { return this.state !== 'dead' && this.state !== 'respawning'; }
@@ -146,8 +161,11 @@ export class Player {
     this.body.setVelocityX(vx + this.externalVx);
     this.lastExternalVx = this.externalVx;
     this.externalVx = 0;
-    // Crushed: something solid pressing from above while standing, or from both sides.
-    this.crushed = (this.body.touching.up && (this.body.blocked.down || this.body.touching.down)) || (this.body.blocked.left && this.body.blocked.right);
+    // Crushed: solid world pressing from both sides, or a platform ride pushing us into a solid ceiling.
+    // Only `blocked` flags count: Arcade also raises `touching` for overlap-only zones (triggers, the forklift
+    // hood), and a rising body beside a static block gets `touching.up` while it slides past, so touching flags
+    // reported a "crush" that never happened. Crushers and the forklift are checked directly in LevelWorld/GameScene.
+    this.crushed = isCrushed(this.body.blocked, this.riding);
 
     // Jumping: coyote time + buffered input
     const canCoyote = now - this.lastGroundedAt <= T.coyoteMs && !this.jumpedSinceGround;

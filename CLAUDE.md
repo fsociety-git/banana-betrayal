@@ -38,3 +38,4 @@ Stack: Phaser 4.2.1, TypeScript 7 (strict), Vite 8, Vitest 5. Static deploy (Git
 - DynamicTexture draw commands need `render()`. postFX/preFX → `gameObject.filters.internal.add*()`, `camera.filters.internal/external`.
 - `Math.TAU` is 2π. `Geom.Point` → `Vector2`. BitmapMask → Mask filter.
 - Bundled docs: `node_modules/phaser/skills/` (grep them before guessing an API).
+- Arcade gotchas: a dynamic body on a Container is placed with `scaleX * (offset - displayOrigin)`, so flipping the container (`scaleX = -1`) mirrors the body to the wrong side; use a separate static proxy (`PigBoss.proxy`) for anything drawn flipped. Overlap-only zones still raise `body.touching.*`, so never infer crushing from touching flags (use `blocked`, or direct AABB checks as crushers/forklift do).

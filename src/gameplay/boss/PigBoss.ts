@@ -5,6 +5,7 @@ import { CharacterRig } from '../player/CharacterRig';
 import type { Resettable } from '../world/SnapshotRegistry';
 import type { Speaker } from '../dialogue/DialogueManager';
 import type { Bonkable } from '../interact/Bonk';
+import { FORKLIFT, forkliftBody, forkliftHood } from './forkliftGeometry';
 
 export type BossState = 'idle' | 'intro' | 'telegraph' | 'charge' | 'stunned' | 'lob' | 'recover' | 'defeated';
 
@@ -36,7 +37,9 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
   readonly events = new Phaser.Events.EventEmitter();
   readonly root: Phaser.GameObjects.Container;
   readonly rig: CharacterRig;
-  readonly body: Phaser.Physics.Arcade.Body;
+  /** Invisible physics proxy. The drawn container flips with scaleX, which Phaser would apply to a body's offset. */
+  readonly proxy: Phaser.GameObjects.Rectangle;
+  readonly body: Phaser.Physics.Arcade.StaticBody;
   readonly stompZone: Phaser.GameObjects.Zone;
   readonly stompBody: Phaser.Physics.Arcade.StaticBody;
   state: BossState = 'idle';
@@ -63,9 +66,11 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
   private decorPieces: Phaser.GameObjects.Graphics[] = [];
   private decorDropped = false;
   private light: Phaser.GameObjects.Graphics | null = null;
+  /** True once he has climbed out for the ending; the seat stays empty. */
+  private dismounted = false;
   private lightTween: Phaser.Tweens.Tween | null = null;
-  readonly width = 150;
-  readonly height = 90;
+  readonly width = FORKLIFT.width;
+  readonly height = FORKLIFT.height;
 
   constructor(scene: Phaser.Scene, arena: { left: number; right: number; floorY: number; top: number }, reducedMotion: boolean) {
     this.scene = scene;
@@ -84,14 +89,16 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.rig.setScale(0.85);
     this.rig.shadow.setVisible(false);
     this.alert = scene.add.text(this.startX, arena.floorY - 170, '!', { fontFamily: 'Fredoka, Nunito, sans-serif', fontSize: '42px', color: '#e5484d', fontStyle: 'bold', stroke: '#2c1a0e', strokeThickness: 6 }).setOrigin(0.5).setDepth(DEPTH.npc + 3).setVisible(false);
-    // physics: the forklift is an immovable block the player collides with (deadly unless stunned/defeated)
-    this.root.setSize(this.width, this.height);
-    scene.physics.add.existing(this.root);
-    this.body = this.root.body as Phaser.Physics.Arcade.Body;
-    this.body.setAllowGravity(false); this.body.immovable = true; this.body.moves = false; this.body.setFriction(0, 0);
-    this.body.setSize(this.width - 20, this.height - 10).setOffset(-(this.width - 20) / 2, -(this.height - 10) - 2);
+    // physics: the forklift is an immovable block the player collides with (deadly unless stunned/defeated).
+    // A static body on a plain rectangle, re-placed every frame, so the geometry never depends on the container's
+    // origin or on the scaleX flip (a dynamic body on the flipped container landed 140 px beside and 45 px above it).
+    const fb = forkliftBody(this.startX, arena.floorY);
+    this.proxy = scene.add.rectangle(this.startX, (fb.top + fb.bottom) / 2, FORKLIFT.bodyW, FORKLIFT.bodyH, 0xff00ff, 0).setVisible(false);
+    scene.physics.add.existing(this.proxy, true);
+    this.body = this.proxy.body as Phaser.Physics.Arcade.StaticBody;
     // stomp zone: hood of the forklift, only enabled while stunned
-    this.stompZone = scene.add.zone(this.startX, arena.floorY - this.height - 30, 110, 40);
+    const hood = forkliftHood(this.startX, arena.floorY);
+    this.stompZone = scene.add.zone(this.startX, (hood.top + hood.bottom) / 2, FORKLIFT.hoodW, FORKLIFT.hoodH);
     scene.physics.add.existing(this.stompZone, true);
     this.stompBody = this.stompZone.body as Phaser.Physics.Arcade.StaticBody;
     this.stompBody.enable = false;
@@ -177,12 +184,13 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     const x = this.root.x, y = this.root.y;
     this.root.setScale(this.facing === -1 ? 1 : -1, 1);
     this.root.setRotation(this.reducedMotion ? 0 : this.tilt);
-    this.rig.setPosition(x + 10 * -this.facing, y - 44);
-    this.rig.setFacing(this.facing);
+    if (!this.dismounted) { this.rig.setPosition(x + 10 * -this.facing, y - 44); this.rig.setFacing(this.facing); }
     this.trophy.setPosition(-this.width / 2 - 40, -this.height - 12);
     this.alert.setPosition(x, y - 190);
-    this.stompZone.setPosition(x, y - this.height - 30);
-    this.stompBody.reset(x, y - this.height - 30);
+    const hood = forkliftHood(x, y), fb = forkliftBody(x, y);
+    this.stompZone.setPosition(x, (hood.top + hood.bottom) / 2);
+    this.stompBody.reset(x, (hood.top + hood.bottom) / 2);
+    this.body.reset(x, (fb.top + fb.bottom) / 2);
     this.exhaust?.setPosition(x + (this.width / 2 - 22) * -this.facing, y - this.height - 24);
     this.smoke?.setPosition(x, y - this.height);
   }
@@ -195,6 +203,16 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.state = 'intro';
     this.timer = 1800;
   }
+
+  /** Ending: Dukkar climbs out. Returns where his feet land so the walk-in can start from the vehicle. */
+  dismount(): { x: number; y: number } {
+    this.dismounted = true;
+    const side = this.facing === -1 ? 1 : -1; // steps out behind the forklift
+    const x = this.root.x + side * (this.width / 2 + 30);
+    this.rig.setVisible(false);
+    return { x, y: this.arena.floorY };
+  }
+  get isDismounted(): boolean { return this.dismounted; }
 
   /** The forklift as a bonk target: a clang while he is driving, a proper reaction once he is beaten. */
   bonkable(): Bonkable {
@@ -388,6 +406,7 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     this.trophy.setPosition(-this.width / 2 - 40, -this.height - 12).setAngle(0);
     this.emergencyLight(false);
     if (this.decorDropped) this.buildDecor();
+    this.dismounted = false; this.rig.setVisible(true);
     this.syncPositions();
   }
 
@@ -396,6 +415,6 @@ export class PigBoss implements Resettable<{ reset: true }>, Speaker {
     for (const c of this.crates) { c.go.destroy(); c.shadow.destroy(); }
     this.exhaust?.destroy(); this.smoke?.destroy();
     this.emergencyLight(false);
-    this.alert.destroy(); this.stompZone.destroy(); this.rig.destroy(); this.root.destroy();
+    this.alert.destroy(); this.stompZone.destroy(); this.proxy.destroy(); this.rig.destroy(); this.root.destroy();
   }
 }

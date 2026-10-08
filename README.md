@@ -139,6 +139,7 @@ A viewport harness for exact-size layout checks lives at `/dev/frame.html?size=3
 - The ghost is a sampled visual replay of positions, not a deterministic physics re-simulation.
 - Audio is procedural WebAudio; it starts after the first click/tap as browsers require.
 - Dukkar's "useful step" after repeated failures is a pointer and a hint line, not a spawned platform; assist mode's extra checkpoints remain the physical help.
+- A landed stomp on the forklift grants 0.9 s of contact grace so the bounce can come down safely; charges, telegraphs and crates are lethal as before.
 - Adding encounters changed the layout hash of every level, so ghosts recorded with older builds are discarded on first load.
 
 ## Testing

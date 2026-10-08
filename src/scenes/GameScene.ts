@@ -10,6 +10,7 @@ import { SaveManager } from '../core/save/SaveManager';
 import { makeRecord } from '../core/save/schema';
 import { SettingsService } from '../core/settings/SettingsService';
 import { DevOverlay } from '../dev/DevOverlay';
+import { FORKLIFT } from '../gameplay/boss/forkliftGeometry';
 import { PigBoss } from '../gameplay/boss/PigBoss';
 import { CameraController } from '../gameplay/camera/CameraController';
 import { GhostPlayer, GhostRecorder } from '../gameplay/ghost/Ghost';
@@ -36,6 +37,7 @@ import { Terrain } from '../gameplay/world/Terrain';
 import { Water } from '../gameplay/world/Water';
 import { THEMES, type ThemePalette } from '../gameplay/world/themes';
 import { CAMPAIGN, getLevel } from '../levels';
+import { activateCheckpoint } from '../levels/checkpointOrder';
 import { levelHash } from '../levels/hash';
 import { parseLevel } from '../levels/parse';
 import type { LevelData, ParsedLevel } from '../levels/types';
@@ -93,6 +95,8 @@ export class GameScene extends Phaser.Scene {
   private flagFleeing = false;
   private flagCanFinish = true;
   private boss: PigBoss | null = null;
+  /** A landed stomp earns a short grace: the bounce can come down on a still-recovering forklift. */
+  private stompGraceUntil = -Infinity;
   private bossStarted = false;
   private endingStarted = false;
   private endingObjects: Phaser.GameObjects.GameObject[] = [];
@@ -158,7 +162,7 @@ export class GameScene extends Phaser.Scene {
     this.deaths = 0; this.elapsedMs = 0; this.finished = false; this.running = true; this.bananasSpent = 0;
     this.bananas = []; this.checkpoints = []; this.decor = [];
     this.flag = null; this.flagFleeing = false; this.flagCanFinish = true; this.deathContext = null;
-    this.boss = null; this.bossStarted = false; this.endingStarted = false; this.endingObjects = []; this.ghostRecorder.reset(); this.ghostPlayer = null;
+    this.boss = null; this.bossStarted = false; this.stompGraceUntil = -Infinity; this.endingStarted = false; this.endingObjects = []; this.ghostRecorder.reset(); this.ghostPlayer = null;
     this.snapshots = new SnapshotRegistry();
 
     // world
@@ -386,9 +390,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private reachCheckpoint(c: CheckpointPost): void {
-    if (c.reached || !this.player.alive) return;
-    for (const other of this.checkpoints) if (other.index < c.index) other.reached = true;
-    c.activate();
+    if (!this.player.alive || !activateCheckpoint(this.checkpoints, c)) return;
     this.player.setSpawn(c.footX, c.footY);
     this.snapshots.capture();
     this.spentAtBaseline = this.bananasSpent;
@@ -609,13 +611,16 @@ export class GameScene extends Phaser.Scene {
     void this.flag.runTo(to.x, to.y, 1400).then(() => { this.flagFleeing = false; this.flagCanFinish = true; });
   }
 
+  private lastDeathCauses = '-';
   private kill(cause: DeathCause): void {
     if (!this.player.alive || this.finished) return;
+    const rawCause = cause;
     // Environmental deaths (falling, drowning) are attributed to the trap that caused them; direct hazards keep their own cause.
     if (cause === 'crush' && this.bossStarted && this.boss && !this.boss.defeated) cause = 'boss';
     const environmental = cause === 'fall' || cause === 'water';
     const ctx = environmental && this.deathContext && this.time.now < this.deathContext.until ? this.deathContext.cause : null;
     const finalCause = ctx ?? cause;
+    this.lastDeathCauses = `${rawCause}→${finalCause}`;
     if (this.player.die(finalCause)) bus.emit(Events.PlayerDied, finalCause);
   }
 
@@ -692,11 +697,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.existing(entry, true);
     this.decor.push(entry);
     this.physics.add.overlap(this.player.proxy, entry, () => this.startBoss(arena));
-    this.physics.add.collider(this.player.proxy, boss.root, () => { if (boss.deadly) this.kill('boss'); });
+    this.physics.add.collider(this.player.proxy, boss.proxy, () => { if (boss.deadly && this.time.now >= this.stompGraceUntil) this.kill('boss'); });
     this.physics.add.overlap(this.player.proxy, boss.stompZone, () => {
       if (!boss.stunned || this.player.body.velocity.y < 60) return;
       if (boss.stomp()) {
-        this.player.body.setVelocityY(-560);
+        this.player.body.setVelocityY(FORKLIFT.bounceVy);
+        this.stompGraceUntil = this.time.now + FORKLIFT.stompGraceMs;
         this.audio.play('bossHit', 1, 200);
         this.cameraCtl.shake(0.008, 260);
         if (!this.settings.reducedMotion) this.cameras.main.flash(140, 255, 241, 168);
@@ -830,14 +836,19 @@ export class GameScene extends Phaser.Scene {
   /** Real banana, handmade trophy, and a choice: high-five, bonk, or both. Then the truce lasts four seconds. */
   private handover(arena: { left: number; right: number; floorY: number; top: number }, finish: () => void): void {
     const px = this.player.x;
-    const startX = Phaser.Math.Clamp(px + 260, arena.left + 80, arena.right - 60);
-    const d = new PigNPC(this, startX, arena.floorY, 'idle', true, 'dukkar-end');
+    // he climbs out of the forklift and walks over; he stops on whichever side of Makad has room to face him
+    const seat = this.boss ? this.boss.dismount() : { x: px + 260, y: arena.floorY };
+    const startX = Phaser.Math.Clamp(seat.x, arena.left + 60, arena.right - 60);
+    const d = new PigNPC(this, startX, arena.floorY, 'idle', startX > px, 'dukkar-end');
     this.world.pigs.push(d);
     d.holdBanana(true);
     const trophy = drawTrophy(this, startX - 30, arena.floorY - 40, ENDING.trophyFront, ENDING.trophyBack);
     trophy.c.setScale(0.8);
     this.endingObjects.push(trophy.c);
-    const standX = Phaser.Math.Clamp(px + 110, arena.left + 60, arena.right - 60);
+    const GAP = 150;
+    const roomRight = arena.right - 60 - px, roomLeft = px - (arena.left + 60);
+    const side = roomRight >= GAP ? 1 : roomLeft >= GAP ? -1 : roomRight >= roomLeft ? 1 : -1;
+    const standX = Phaser.Math.Clamp(px + side * GAP, arena.left + 60, arena.right - 60);
     const follow = this.time.addEvent({ delay: 16, loop: true, callback: () => { trophy.c.setPosition(d.rig.x - 30 * (d.rig.x > this.player.x ? 1 : -1), d.rig.y - 40); } });
     const say = (key: string): void => { this.pigSay(d, key, { priority: true, force: true }); };
     d.walkTo(standX, 150, () => {
@@ -999,7 +1010,7 @@ export class GameScene extends Phaser.Scene {
       if (this.player.alive && this.boss.crateHits(pb.left, pb.right, pb.top, pb.bottom)) this.kill('boss');
       // the forklift moves faster per step than Arcade's overlap bias allows, so contact is checked directly
       const bb = this.boss.body;
-      if (this.player.alive && this.boss.deadly && bb.enable && pb.right > bb.left + 6 && pb.left < bb.right - 6 && pb.bottom > bb.top + 8 && pb.top < bb.bottom) this.kill('boss');
+      if (this.player.alive && this.boss.deadly && this.time.now >= this.stompGraceUntil && bb.enable && pb.right > bb.left + 6 && pb.left < bb.right - 6 && pb.bottom > bb.top + 8 && pb.top < bb.bottom) this.kill('boss');
     }
     if (this.player.alive && this.running) this.ghostRecorder.update(delta, this.player.x, this.player.feetY, this.player.facing, this.player.state);
     this.ghostPlayer?.update(delta);
@@ -1067,7 +1078,7 @@ export class GameScene extends Phaser.Scene {
       `state=${this.player.state} facing=${this.player.facing} grounded=${this.player.grounded} riding=${this.player.riding}`,
       `pos=(${b.center.x.toFixed(0)}, ${b.bottom.toFixed(0)}) vel=(${b.velocity.x.toFixed(0)}, ${b.velocity.y.toFixed(0)})`,
       `blocked d/l/r=${b.blocked.down ? 1 : 0}/${b.blocked.left ? 1 : 0}/${b.blocked.right ? 1 : 0} touching d=${b.touching.down ? 1 : 0}`,
-      `deaths=${this.deaths} bananas=${this.collectedCount()}/${this.bananas.length} t=${(this.elapsedMs / 1000).toFixed(1)}s checkpoint=${this.checkpoints.filter((c) => c.reached).length}/${this.checkpoints.length} baseline=${this.snapshots.hasBaseline}`,
+      `deaths=${this.deaths} (last ${this.lastDeathCauses}) bananas=${this.collectedCount()}/${this.bananas.length} t=${(this.elapsedMs / 1000).toFixed(1)}s checkpoint=${this.checkpoints.filter((c) => c.reached).length}/${this.checkpoints.length} baseline=${this.snapshots.hasBaseline}`,
       `traps: ${traps.join(' ') || '-'}`,
       `input L/R/J=${InputManager.instance.left ? 1 : 0}/${InputManager.instance.right ? 1 : 0}/${InputManager.instance.jumpHeld ? 1 : 0} audio=${this.audio.unlocked ? 'on' : 'locked'} music=${this.audio.currentTrack ?? '-'}`,
     ].join('\n');
